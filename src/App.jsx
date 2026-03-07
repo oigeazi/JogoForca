@@ -1,8 +1,14 @@
-import { startTransition, useEffect, useEffectEvent, useRef, useState } from 'react'
-import './App.css'
-import GameModal from './components/GameModal'
-import HangmanDrawing from './components/HangmanDrawing'
-import PhraseBoard from './components/PhraseBoard'
+import {
+  startTransition,
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+} from "react";
+import "./App.css";
+import GameModal from "./components/GameModal";
+import HangmanDrawing from "./components/HangmanDrawing";
+import PhraseBoard from "./components/PhraseBoard";
 import {
   ALPHABET,
   COMPLIMENT_OPTIONS,
@@ -12,248 +18,261 @@ import {
   POLAROIDS,
   PROPOSAL_PHRASE,
   ROMANTIC_TRACK,
-} from './content/gameContent'
-import { useGameAudio } from './hooks/useGameAudio'
-import { createConfettiPieces, getPhaseLabel, getProgress, getStageTitle, pickRandomItem } from './utils/gameState'
-import { extractLetters, normalizeChar } from './utils/text'
+} from "./content/gameContent";
+import { useGameAudio } from "./hooks/useGameAudio";
+import {
+  createConfettiPieces,
+  getPhaseLabel,
+  getProgress,
+  getStageTitle,
+  pickRandomItem,
+} from "./utils/gameState";
+import { extractLetters, normalizeChar } from "./utils/text";
 
 function App() {
-  const [screen, setScreen] = useState('intro')
-  const [selectedCompliment, setSelectedCompliment] = useState(COMPLIMENT_OPTIONS[0])
-  const [guessedLetters, setGuessedLetters] = useState([])
-  const [wrongLetters, setWrongLetters] = useState([])
-  const [modal, setModal] = useState(null)
-  const [noCount, setNoCount] = useState(0)
-  const [statusText, setStatusText] = useState('')
-  const [finalStep, setFinalStep] = useState('waiting')
-  const [confettiPieces, setConfettiPieces] = useState([])
+  const [screen, setScreen] = useState("intro");
+  const [selectedCompliment, setSelectedCompliment] = useState(
+    COMPLIMENT_OPTIONS[0],
+  );
+  const [guessedLetters, setGuessedLetters] = useState([]);
+  const [wrongLetters, setWrongLetters] = useState([]);
+  const [modal, setModal] = useState(null);
+  const [noCount, setNoCount] = useState(0);
+  const [statusText, setStatusText] = useState("");
+  const [finalStep, setFinalStep] = useState("waiting");
+  const [confettiPieces, setConfettiPieces] = useState([]);
   const [viewport, setViewport] = useState({
     width: window.innerWidth,
     height: window.innerHeight,
-  })
+  });
 
-  const advanceTimerRef = useRef(null)
-  const finaleTimerRef = useRef(null)
-  const romanticStartedRef = useRef(false)
-  const { playTrack, stopAllAudio } = useGameAudio()
+  const advanceTimerRef = useRef(null);
+  const finaleTimerRef = useRef(null);
+  const romanticStartedRef = useRef(false);
+  const { playTrack, stopAllAudio } = useGameAudio();
 
-  const isMobileViewport = viewport.width <= 950 || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
-  const isLandscape = viewport.width > viewport.height
-  const showDesktopBlock = !isMobileViewport
-  const showRotatePrompt = isMobileViewport && !isLandscape
-  const hangmanActive = screen === 'stage1' || screen === 'stage2-guess'
-  const currentPhrase = screen === 'stage1' ? selectedCompliment : PROPOSAL_PHRASE
-  const phraseLetters = extractLetters(currentPhrase)
-  const usedLetters = new Set([...guessedLetters, ...wrongLetters])
-  const progressValue = getProgress(screen, finalStep)
-  const revealFullPhrase = screen === 'stage2-choice'
-  const hideQuestionMark = screen === 'stage2-guess'
+  const isMobileViewport =
+    viewport.width <= 950 ||
+    /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  const isLandscape = viewport.width > viewport.height;
+  const showDesktopBlock = !isMobileViewport;
+  const showRotatePrompt = isMobileViewport && !isLandscape;
+  const hangmanActive = screen === "stage1" || screen === "stage2-guess";
+  const currentPhrase =
+    screen === "stage1" ? selectedCompliment : PROPOSAL_PHRASE;
+  const phraseLetters = extractLetters(currentPhrase);
+  const usedLetters = new Set([...guessedLetters, ...wrongLetters]);
+  const progressValue = getProgress(screen, finalStep);
+  const revealFullPhrase = screen === "stage2-choice";
+  const hideQuestionMark = screen === "stage2-guess";
 
   function clearRoundTimer() {
     if (advanceTimerRef.current) {
-      window.clearTimeout(advanceTimerRef.current)
-      advanceTimerRef.current = null
+      window.clearTimeout(advanceTimerRef.current);
+      advanceTimerRef.current = null;
     }
   }
 
   function clearFinaleTimer() {
     if (finaleTimerRef.current) {
-      window.clearTimeout(finaleTimerRef.current)
-      finaleTimerRef.current = null
+      window.clearTimeout(finaleTimerRef.current);
+      finaleTimerRef.current = null;
     }
   }
 
   function resetRound() {
-    setGuessedLetters([])
-    setWrongLetters([])
-    clearRoundTimer()
+    setGuessedLetters([]);
+    setWrongLetters([]);
+    clearRoundTimer();
   }
 
   function queueAdvance(message, callback) {
-    clearRoundTimer()
-    setStatusText(message)
+    clearRoundTimer();
+    setStatusText(message);
     advanceTimerRef.current = window.setTimeout(() => {
       startTransition(() => {
-        callback()
-        setStatusText('')
-      })
-    }, 900)
+        callback();
+        setStatusText("");
+      });
+    }, 900);
   }
 
   function startGame() {
-    clearRoundTimer()
-    clearFinaleTimer()
-    stopAllAudio()
-    romanticStartedRef.current = false
-    setScreen('stage1')
-    setSelectedCompliment(pickRandomItem(COMPLIMENT_OPTIONS))
-    setGuessedLetters([])
-    setWrongLetters([])
-    setModal(null)
-    setNoCount(0)
-    setStatusText('')
-    setFinalStep('waiting')
-    setConfettiPieces([])
+    clearRoundTimer();
+    clearFinaleTimer();
+    stopAllAudio();
+    romanticStartedRef.current = false;
+    setScreen("stage1");
+    setSelectedCompliment(pickRandomItem(COMPLIMENT_OPTIONS));
+    setGuessedLetters([]);
+    setWrongLetters([]);
+    setModal(null);
+    setNoCount(0);
+    setStatusText("");
+    setFinalStep("waiting");
+    setConfettiPieces([]);
   }
 
   function submitGuess(value) {
     if (!hangmanActive || modal) {
-      return
+      return;
     }
 
-    const letter = normalizeChar(value)
+    const letter = normalizeChar(value);
 
     if (!letter || usedLetters.has(letter)) {
-      return
+      return;
     }
 
     if (phraseLetters.includes(letter)) {
-      const nextGuesses = [...guessedLetters, letter]
-      setGuessedLetters(nextGuesses)
+      const nextGuesses = [...guessedLetters, letter];
+      setGuessedLetters(nextGuesses);
 
-      const solved = phraseLetters.every((targetLetter) => nextGuesses.includes(targetLetter))
+      const solved = phraseLetters.every((targetLetter) =>
+        nextGuesses.includes(targetLetter),
+      );
 
       if (!solved) {
-        return
+        return;
       }
 
-      if (screen === 'stage1') {
-        queueAdvance('Boa. Vamos para a proxima.', () => {
-          setScreen('stage2-guess')
-          resetRound()
-        })
-        return
+      if (screen === "stage1") {
+        queueAdvance("Boa. Vamos para a proxima.", () => {
+          setScreen("stage2-guess");
+          resetRound();
+        });
+        return;
       }
 
-      queueAdvance('Frase completa.', () => {
-        setScreen('stage2-choice')
-      })
-      return
+      queueAdvance("Frase completa.", () => {
+        setScreen("stage2-choice");
+      });
+      return;
     }
 
-    const nextWrongLetters = [...wrongLetters, letter]
-    setWrongLetters(nextWrongLetters)
+    const nextWrongLetters = [...wrongLetters, letter];
+    setWrongLetters(nextWrongLetters);
 
     if (nextWrongLetters.length < MAX_ERRORS) {
-      return
+      return;
     }
 
-    clearRoundTimer()
-    setStatusText('Quase... essa frase vai recomecar.')
+    clearRoundTimer();
+    setStatusText("Quase... essa frase vai recomecar.");
     advanceTimerRef.current = window.setTimeout(() => {
-      setStatusText('')
-      setModal('retry-round')
-    }, 600)
+      setStatusText("");
+      setModal("retry-round");
+    }, 600);
   }
 
   const handleKeyGuess = useEffectEvent((value) => {
-    submitGuess(value)
-  })
+    submitGuess(value);
+  });
 
   const playRomanticTrack = useEffectEvent(() => {
-    void playTrack(ROMANTIC_TRACK, 'romantic', 0.55)
-  })
+    void playTrack(ROMANTIC_TRACK, "romantic", 0.55);
+  });
 
   const playOfficialTrack = useEffectEvent(() => {
-    void playTrack(OFFICIAL_TRACK, 'official', 1)
-  })
+    void playTrack(OFFICIAL_TRACK, "official", 1);
+  });
 
   const stopAudioOnCleanup = useEffectEvent(() => {
-    stopAllAudio()
-  })
+    stopAllAudio();
+  });
 
   useEffect(() => {
     function handleResize() {
       setViewport({
         width: window.innerWidth,
         height: window.innerHeight,
-      })
+      });
     }
 
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
     function handleKeyDown(event) {
       if (!/^[a-z]$/i.test(event.key)) {
-        return
+        return;
       }
 
-      event.preventDefault()
-      handleKeyGuess(event.key)
+      event.preventDefault();
+      handleKeyGuess(event.key);
     }
 
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   useEffect(() => {
-    if (screen !== 'stage3') {
-      clearFinaleTimer()
-      romanticStartedRef.current = false
-      return
+    if (screen !== "stage3") {
+      clearFinaleTimer();
+      romanticStartedRef.current = false;
+      return;
     }
 
-    if (finalStep === 'official') {
-      playOfficialTrack()
-      return
+    if (finalStep === "official") {
+      playOfficialTrack();
+      return;
     }
 
     if (!romanticStartedRef.current) {
-      romanticStartedRef.current = true
-      playRomanticTrack()
+      romanticStartedRef.current = true;
+      playRomanticTrack();
     }
 
-    if (finalStep !== 'waiting') {
-      return
+    if (finalStep !== "waiting") {
+      return;
     }
 
-    clearFinaleTimer()
+    clearFinaleTimer();
     finaleTimerRef.current = window.setTimeout(() => {
-      setFinalStep('ready')
-    }, 30000)
+      setFinalStep("ready");
+    }, 30000);
 
-    return () => clearFinaleTimer()
-  }, [finalStep, screen])
+    return () => clearFinaleTimer();
+  }, [finalStep, screen]);
 
   useEffect(() => {
     return () => {
-      clearRoundTimer()
-      clearFinaleTimer()
-      stopAudioOnCleanup()
-    }
-  }, [])
+      clearRoundTimer();
+      clearFinaleTimer();
+      stopAudioOnCleanup();
+    };
+  }, []);
 
   function handleProposalNo() {
-    setModal('confirm-no')
+    setModal("confirm-no");
   }
 
   function confirmProposalNo() {
-    setModal(null)
+    setModal(null);
 
     if (noCount === 0) {
-      setNoCount(1)
-      setModal('wrong-answer')
-      return
+      setNoCount(1);
+      setModal("wrong-answer");
+      return;
     }
 
-    clearFinaleTimer()
-    stopAllAudio()
-    setScreen('ending')
+    clearFinaleTimer();
+    stopAllAudio();
+    setScreen("ending");
   }
 
   function acceptProposal() {
-    clearFinaleTimer()
-    setModal(null)
-    setScreen('stage3')
-    setFinalStep('waiting')
-    setConfettiPieces([])
+    clearFinaleTimer();
+    setModal(null);
+    setScreen("stage3");
+    setFinalStep("waiting");
+    setConfettiPieces([]);
   }
 
   function handleOfficialMoment() {
-    setFinalStep('official')
-    setConfettiPieces(createConfettiPieces())
+    setFinalStep("official");
+    setConfettiPieces(createConfettiPieces());
   }
 
   return (
@@ -265,7 +284,9 @@ function App() {
         <section className="gate-screen">
           <p className="gate-eyebrow">Versao mobile</p>
           <h1>Abra este jogo no celular</h1>
-          <p>A experiencia foi desenhada para tela pequena em modo horizontal.</p>
+          <p>
+            A experiencia foi desenhada para tela pequena em modo horizontal.
+          </p>
         </section>
       ) : showRotatePrompt ? (
         <section className="gate-screen">
@@ -275,14 +296,16 @@ function App() {
         </section>
       ) : (
         <section className="game-frame">
-          {screen === 'intro' ? (
+          {screen === "intro" ? (
             <div className="intro-screen">
               <h1>JOGO DA FORCA</h1>
-              <button className="primary-button intro-button" onClick={startGame}>
+              <button
+                className="primary-button intro-button"
+                onClick={startGame}>
                 Iniciar
               </button>
             </div>
-          ) : screen === 'ending' ? (
+          ) : screen === "ending" ? (
             <div className="ending-screen">
               <span className="ending-tag">Fim do jogo</span>
               <h1>Devolva o celular ao dono e finja que nada aconteceu.</h1>
@@ -295,17 +318,21 @@ function App() {
               <header className="top-bar">
                 <div>
                   <p className="top-bar__label">{getPhaseLabel(screen)}</p>
-                  <h2 className="top-bar__title">{getStageTitle(screen)}</h2>
                 </div>
                 <div className="progress">
-                  <span className="progress__value">{Math.round(progressValue)}%</span>
                   <div className="progress__track">
-                    <div className="progress__fill" style={{ width: `${progressValue}%` }} />
+                    <div
+                      className="progress__fill"
+                      style={{ width: `${progressValue}%` }}
+                    />
                   </div>
+                  <span className="progress__value">
+                    {Math.round(progressValue)}%
+                  </span>
                 </div>
               </header>
 
-              {screen === 'stage3' ? (
+              {screen === "stage3" ? (
                 <section className="finale-screen">
                   <div className="hearts-layer" aria-hidden="true">
                     {HEARTS.map((heart) => (
@@ -322,7 +349,7 @@ function App() {
                     ))}
                   </div>
 
-                  {finalStep === 'official' && (
+                  {finalStep === "official" && (
                     <div className="confetti-layer" aria-hidden="true">
                       {confettiPieces.map((piece) => (
                         <span
@@ -343,13 +370,15 @@ function App() {
                   <div className="finale-copy">
                     <span className="ending-tag">Fase final</span>
                     <h1>
-                      {finalStep === 'ready' || finalStep === 'official'
-                        ? 'ENTAO E OFICIAL?'
-                        : 'Estou nervoso, mas espera ai que tem mais...'}
+                      {finalStep === "ready" || finalStep === "official"
+                        ? "ENTAO E OFICIAL?"
+                        : "Estou nervoso, mas espera ai que tem mais..."}
                     </h1>
 
-                    {finalStep === 'ready' || finalStep === 'official' ? (
-                      <button className="primary-button" onClick={handleOfficialMoment}>
+                    {finalStep === "ready" || finalStep === "official" ? (
+                      <button
+                        className="primary-button"
+                        onClick={handleOfficialMoment}>
                         E OFICIAL
                       </button>
                     ) : (
@@ -361,7 +390,9 @@ function App() {
 
                   <div className="polaroid-row">
                     {POLAROIDS.map((label, index) => (
-                      <article key={label} className={`polaroid polaroid--${index + 1}`}>
+                      <article
+                        key={label}
+                        className={`polaroid polaroid--${index + 1}`}>
                         <div className="polaroid__photo">Foto {index + 1}</div>
                         <p>{label}</p>
                       </article>
@@ -376,20 +407,28 @@ function App() {
                       guessedLetters={guessedLetters}
                       revealAll={revealFullPhrase}
                       hideQuestionMark={hideQuestionMark}
-                      large={screen === 'stage2-choice'}
+                      large={screen === "stage2-choice"}
                     />
 
                     <div className="status-strip">
-                      <span>{statusText || `Erros permitidos: ${MAX_ERRORS}`}</span>
-                      <span>Letras erradas: {wrongLetters.join(' ') || 'nenhuma'}</span>
+                      <span>
+                        {statusText || `Erros permitidos: ${MAX_ERRORS}`}
+                      </span>
+                      <span>
+                        Letras erradas: {wrongLetters.join(" ") || "nenhuma"}
+                      </span>
                     </div>
 
-                    {screen === 'stage2-choice' && (
+                    {screen === "stage2-choice" && (
                       <div className="proposal-actions">
-                        <button className="primary-button" onClick={acceptProposal}>
+                        <button
+                          className="primary-button"
+                          onClick={acceptProposal}>
                           SIM
                         </button>
-                        <button className="secondary-button" onClick={handleProposalNo}>
+                        <button
+                          className="secondary-button"
+                          onClick={handleProposalNo}>
                           NAO
                         </button>
                       </div>
@@ -405,19 +444,18 @@ function App() {
                       <aside className="keyboard-panel">
                         <div className="keyboard">
                           {ALPHABET.map((letter) => {
-                            const isUsed = usedLetters.has(letter)
-                            const isCorrect = guessedLetters.includes(letter)
+                            const isUsed = usedLetters.has(letter);
+                            const isCorrect = guessedLetters.includes(letter);
 
                             return (
                               <button
                                 key={letter}
-                                className={`key ${isCorrect ? 'key--correct' : ''} ${isUsed && !isCorrect ? 'key--wrong' : ''}`}
+                                className={`key ${isCorrect ? "key--correct" : ""} ${isUsed && !isCorrect ? "key--wrong" : ""}`}
                                 onClick={() => submitGuess(letter)}
-                                disabled={isUsed || Boolean(modal)}
-                              >
+                                disabled={isUsed || Boolean(modal)}>
                                 {letter}
                               </button>
-                            )
+                            );
                           })}
                         </div>
                       </aside>
@@ -433,14 +471,14 @@ function App() {
       <GameModal
         modalType={modal}
         onRetryRound={() => {
-          setModal(null)
-          resetRound()
+          setModal(null);
+          resetRound();
         }}
         onConfirmNo={confirmProposalNo}
         onClose={() => setModal(null)}
       />
     </main>
-  )
+  );
 }
 
-export default App
+export default App;
