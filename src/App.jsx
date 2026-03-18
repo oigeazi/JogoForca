@@ -193,11 +193,11 @@ function App() {
   });
 
   const playRomanticTrack = useEffectEvent(() => {
-    void playTrack(ROMANTIC_TRACK, "romantic", 0.55);
+    void playTrack(ROMANTIC_TRACK, "romantic", 0.55, { loop: true });
   });
 
   const playOfficialTrack = useEffectEvent(() => {
-    void playTrack(OFFICIAL_TRACK, "official", 1);
+    void playTrack(OFFICIAL_TRACK, "official", 1, { loop: false });
   });
 
   const stopAudioOnCleanup = useEffectEvent(() => {
@@ -403,35 +403,40 @@ function App() {
 
                   <div className="finale-copy">
                     <div className="finale-copy__head">
-                      <span className="ending-tag">Fase final</span>
-                      <h1>
-                        {finalStep === "ready" || finalStep === "official"
-                          ? "ENTÃO É OFICIAL?"
-                          : "Estou nervoso, mas espera ai que tem mais..."}
-                      </h1>
+                      {finalStep === "official" ? (
+                        <h1 className="finale-couple-name">GEAZI & ESTER</h1>
+                      ) : (
+                        <h1>
+                          {finalStep === "ready"
+                            ? "É OFICIAL?"
+                            : "Estou nervoso, mas espera ai que tem mais..."}
+                        </h1>
+                      )}
                     </div>
 
                     <div className="finale-copy__foot">
-                      {finalStep === "ready" || finalStep === "official" ? (
+                      {finalStep === "ready" ? (
                         <button
                           className="primary-button"
                           onClick={handleOfficialMoment}>
-                          É OFICIAL!
+                          SIM
                         </button>
                       ) : null}
                     </div>
                   </div>
 
-                  <div className="polaroid-row">
-                    {POLAROIDS.map((label, index) => (
-                      <article
-                        key={label}
-                        className={`polaroid polaroid--${index + 1}`}>
-                        <div className="polaroid__photo">Foto {index + 1}</div>
-                        <p>{label}</p>
-                      </article>
-                    ))}
-                  </div>
+                  {finalStep === "official" && (
+                    <div className="polaroid-row">
+                      {POLAROIDS.map((label, index) => (
+                        <article
+                          key={label}
+                          className={`polaroid polaroid--${index + 1}`}>
+                          <div className="polaroid__photo">Foto {index + 1}</div>
+                          <p>{label}</p>
+                        </article>
+                      ))}
+                    </div>
+                  )}
                 </section>
               ) : (
                 <section

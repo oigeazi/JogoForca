@@ -22,7 +22,7 @@ export function useGameAudio() {
     }
   }
 
-  function startSynthTrack(kind) {
+  function startSynthTrack(kind, loop = true) {
     const AudioContextClass = window.AudioContext || window.webkitAudioContext
 
     if (!AudioContextClass) {
@@ -80,17 +80,21 @@ export function useGameAudio() {
     }
 
     playNote()
-    synthTimerRef.current = window.setInterval(
-      playNote,
-      (config.duration + config.gap) * 1000,
-    )
+
+    if (loop) {
+      synthTimerRef.current = window.setInterval(
+        playNote,
+        (config.duration + config.gap) * 1000,
+      )
+    }
   }
 
-  async function playTrack(src, kind, volume) {
+  async function playTrack(src, kind, volume, options = {}) {
+    const { loop = true } = options
     stopAllAudio()
 
     const audio = new Audio(src)
-    audio.loop = true
+    audio.loop = loop
     audio.volume = volume
     audio.preload = 'auto'
     htmlAudioRef.current = audio
@@ -98,7 +102,7 @@ export function useGameAudio() {
     const fallback = () => {
       if (htmlAudioRef.current === audio) {
         htmlAudioRef.current = null
-        startSynthTrack(kind)
+        startSynthTrack(kind, loop)
       }
     }
 

@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&display=swap");
+
 .app-shell {
   position: relative;
   width: 100%;
@@ -154,7 +156,6 @@
 
 .game-stage--solo {
   grid-template-columns: 1fr;
-  grid-template-areas: "phrase";
   grid-template-rows: minmax(0, 1fr);
 }
 
@@ -361,14 +362,15 @@
 
 .finale-screen {
   display: grid;
-  grid-template-columns: 1.1fr 0.95fr;
-  grid-template-rows: minmax(0, 1fr);
-  gap: 1rem;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto 1fr;
+  gap: 1.15rem;
   overflow: hidden;
   padding: clamp(1rem, 2.2vw, 1.35rem);
   flex: 1;
   min-height: 0;
   align-items: stretch;
+  justify-items: center;
 }
 
 .finale-copy {
@@ -376,17 +378,29 @@
   z-index: 1;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 0.9rem;
-  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  width: min(100%, 44rem);
   min-height: 0;
+  text-align: center;
 }
 
 .finale-copy__head,
 .finale-copy__foot {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 0.7rem;
+  width: 100%;
+}
+
+.finale-couple-name {
+  font-family: "Cormorant Garamond", "Palatino Linotype", serif;
+  font-size: clamp(2.8rem, 7vw, 5rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-wrap: balance;
 }
 
 .polaroid-row {
@@ -394,15 +408,16 @@
   z-index: 1;
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  gap: 1rem;
+  gap: 1.4rem;
+  width: 100%;
   min-height: 0;
 }
 
 .polaroid {
-  width: 8.1rem;
-  padding: 0.7rem 0.7rem 1.1rem;
+  width: clamp(8.5rem, 16vw, 10.5rem);
+  padding: 0.8rem 0.8rem 1.15rem;
   border-radius: 0.65rem;
   background: #fff7ff;
   color: #4a044e;
@@ -411,8 +426,8 @@
 }
 
 .polaroid p {
-  margin: 0.8rem 0 0;
-  font-size: 0.82rem;
+  margin: 0.9rem 0 0;
+  font-size: 0.95rem;
   text-align: center;
 }
 
@@ -428,6 +443,7 @@
       rgba(168, 85, 247, 0.08) 10px,
       rgba(244, 114, 182, 0.1) 10px,
       rgba(244, 114, 182, 0.1) 20px);
+  font-size: 1.05rem;
   font-weight: 700;
 }
 
@@ -591,11 +607,12 @@
   }
 
   .polaroid {
-    width: 6.15rem;
+    width: 7.2rem;
   }
 }
 
 @media (max-height: 430px) and (orientation: landscape) {
+
   .gate-screen,
   .game-frame {
     padding: 0.55rem;
@@ -705,11 +722,6 @@
     gap: 0.55rem;
   }
 
-  .finale-screen {
-    grid-template-columns: 1fr 0.9fr;
-    gap: 0.7rem;
-  }
-
   .finale-copy {
     gap: 0.45rem;
   }
@@ -724,13 +736,13 @@
   }
 
   .polaroid {
-    width: 4.2rem;
+    width: 5.1rem;
     padding: 0.35rem 0.35rem 0.65rem;
   }
 
   .polaroid p {
     margin-top: 0.35rem;
-    font-size: 0.58rem;
+    font-size: 0.66rem;
   }
 }
 
@@ -753,10 +765,6 @@
 
   .hangman-svg {
     width: min(100%, 11rem);
-  }
-
-  .finale-screen {
-    grid-template-columns: 1fr;
   }
 
   .finale-copy {
@@ -798,6 +806,7 @@
 }
 
 @media (max-width: 480px) and (orientation: landscape) {
+
   .primary-button,
   .secondary-button {
     width: auto;
