@@ -19,8 +19,8 @@ export const COMPLIMENT_OPTIONS = [
 export const PROPOSAL_PHRASE = 'QUER NAMORAR COMIGO?'
 export const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 export const MAX_ERRORS = 6
-export const ROMANTIC_TRACK = '/audio/romantica.mp3'
-export const OFFICIAL_TRACK = '/audio/aquilo-que-parecia-impossivel.mp3'
+export const ROMANTIC_TRACK = '/audio/Música Romântica.mp3'
+export const OFFICIAL_TRACK = '/audio/Música Comemoração.mp3'
 
 export const HEARTS = Array.from({ length: 10 }, (_, index) => ({
   id: `heart-${index}`,

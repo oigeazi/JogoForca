@@ -160,7 +160,7 @@ function App() {
       }
 
       if (screen === "stage1") {
-        queueAdvance("Boa. Vamos para a proxima.", () => {
+        queueAdvance("Boa! Vamos para a proxima.", () => {
           setScreen("stage2-guess");
           resetRound();
         });
@@ -181,7 +181,7 @@ function App() {
     }
 
     clearRoundTimer();
-    setStatusText("Quase... essa frase vai recomecar.");
+    setStatusText("Quase... essa frase vai recomeçar.");
     advanceTimerRef.current = window.setTimeout(() => {
       setStatusText("");
       setModal("retry-round");
@@ -319,18 +319,15 @@ function App() {
 
       {showDesktopBlock ? (
         <section className="gate-screen">
-          <p className="gate-eyebrow">Somente no celular</p>
           <h1>Abra este jogo em um celular</h1>
-          <p>
-            O acesso fica liberado apenas em tela pequena para manter a surpresa
-            do jeito certo.
-          </p>
+          <p>Este jogo foi otimizado apenas para telas mobile.</p>
         </section>
       ) : showRotatePrompt ? (
         <section className="gate-screen">
-          <p className="gate-eyebrow">Modo horizontal</p>
           <h1>Vire o celular para a horizontal</h1>
-          <p>Em pe o jogo fica bloqueado. Na horizontal ele se ajusta sozinho.</p>
+          <p>
+            Modo vertical bloqueado para preservar <br /> a experiência do jogo.
+          </p>
         </section>
       ) : (
         <section className="game-frame">
@@ -342,7 +339,7 @@ function App() {
                 onClick={handleStartGame}>
                 Iniciar
               </button>
-              <p className="intro-hint">Toque para testar em tela cheia.</p>
+              <p className="intro-hint">Toque para jogar em tela cheia.</p>
             </div>
           ) : screen === "ending" ? (
             <div className="ending-screen">
@@ -409,7 +406,7 @@ function App() {
                       <span className="ending-tag">Fase final</span>
                       <h1>
                         {finalStep === "ready" || finalStep === "official"
-                          ? "ENTAO E OFICIAL?"
+                          ? "ENTÃO É OFICIAL?"
                           : "Estou nervoso, mas espera ai que tem mais..."}
                       </h1>
                     </div>
@@ -419,13 +416,9 @@ function App() {
                         <button
                           className="primary-button"
                           onClick={handleOfficialMoment}>
-                          E OFICIAL
+                          É OFICIAL!
                         </button>
-                      ) : (
-                        <p className="finale-hint">
-                          Segura mais um pouquinho enquanto a tela continua.
-                        </p>
-                      )}
+                      ) : null}
                     </div>
                   </div>
 

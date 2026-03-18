@@ -1,26 +1,26 @@
 function GameModal({ modalType, onRetryRound, onConfirmNo, onClose }) {
   if (!modalType) {
-    return null
+    return null;
   }
 
   return (
     <div className="modal-backdrop">
       <div className="modal-card" role="dialog" aria-modal="true">
-        {modalType === 'retry-round' && (
+        {modalType === "retry-round" && (
           <>
             <p className="gate-eyebrow">Mais uma chance</p>
             <h3>Essa rodada vai recomecar.</h3>
-            <p>As letras voltam ao inicio para voce tentar de novo.</p>
+            <p>As letras voltam ao inicio para você tentar de novo.</p>
             <button className="primary-button" onClick={onRetryRound}>
               Tentar novamente
             </button>
           </>
         )}
 
-        {modalType === 'confirm-no' && (
+        {modalType === "confirm-no" && (
           <>
             <p className="gate-eyebrow">Tem certeza?</p>
-            <h3>Essa resposta merece revisao.</h3>
+            <h3>Pense bem...</h3>
             <div className="proposal-actions proposal-actions--modal">
               <button className="secondary-button" onClick={onConfirmNo}>
                 TENHO
@@ -32,9 +32,9 @@ function GameModal({ modalType, onRetryRound, onConfirmNo, onClose }) {
           </>
         )}
 
-        {modalType === 'wrong-answer' && (
+        {modalType === "wrong-answer" && (
           <>
-            <p className="gate-eyebrow">Ops</p>
+            <p className="gate-eyebrow">Ops...</p>
             <h3>Resposta errada, tente novamente.</h3>
             <button className="primary-button" onClick={onClose}>
               Voltar para a pergunta
@@ -43,7 +43,7 @@ function GameModal({ modalType, onRetryRound, onConfirmNo, onClose }) {
         )}
       </div>
     </div>
-  )
+  );
 }
 
-export default GameModal
+export default GameModal;
