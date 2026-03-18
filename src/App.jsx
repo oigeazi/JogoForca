@@ -24,7 +24,6 @@ import {
   createConfettiPieces,
   getPhaseLabel,
   getProgress,
-  getStageTitle,
   pickRandomItem,
 } from "./utils/gameState";
 import { extractLetters, normalizeChar } from "./utils/text";
@@ -51,9 +50,7 @@ function App() {
   const romanticStartedRef = useRef(false);
   const { playTrack, stopAllAudio } = useGameAudio();
 
-  const isMobileViewport =
-    viewport.width <= 950 ||
-    /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  const isMobileViewport = viewport.width <= 950;
   const isLandscape = viewport.width > viewport.height;
   const showDesktopBlock = !isMobileViewport;
   const showRotatePrompt = isMobileViewport && !isLandscape;
@@ -97,6 +94,27 @@ function App() {
     }, 900);
   }
 
+  async function enterFullscreen() {
+    const element = document.documentElement;
+
+    if (document.fullscreenElement) {
+      return;
+    }
+
+    try {
+      if (element.requestFullscreen) {
+        await element.requestFullscreen();
+        return;
+      }
+
+      if (element.webkitRequestFullscreen) {
+        element.webkitRequestFullscreen();
+      }
+    } catch {
+      // Some mobile browsers reject fullscreen requests even after a tap.
+    }
+  }
+
   function startGame() {
     clearRoundTimer();
     clearFinaleTimer();
@@ -111,6 +129,11 @@ function App() {
     setStatusText("");
     setFinalStep("waiting");
     setConfettiPieces([]);
+  }
+
+  async function handleStartGame() {
+    await enterFullscreen();
+    startGame();
   }
 
   function submitGuess(value) {
@@ -182,15 +205,29 @@ function App() {
   });
 
   useEffect(() => {
+    const root = document.documentElement;
+
     function handleResize() {
+      const width = window.visualViewport?.width ?? window.innerWidth;
+      const height = window.visualViewport?.height ?? window.innerHeight;
+
+      root.style.setProperty("--app-width", `${width}px`);
+      root.style.setProperty("--app-height", `${height}px`);
+
       setViewport({
-        width: window.innerWidth,
-        height: window.innerHeight,
+        width,
+        height,
       });
     }
 
+    handleResize();
     window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    window.visualViewport?.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      window.visualViewport?.removeEventListener("resize", handleResize);
+    };
   }, []);
 
   useEffect(() => {
@@ -282,17 +319,18 @@ function App() {
 
       {showDesktopBlock ? (
         <section className="gate-screen">
-          <p className="gate-eyebrow">Versao mobile</p>
-          <h1>Abra este jogo no celular</h1>
+          <p className="gate-eyebrow">Somente no celular</p>
+          <h1>Abra este jogo em um celular</h1>
           <p>
-            A experiencia foi desenhada para tela pequena em modo horizontal.
+            O acesso fica liberado apenas em tela pequena para manter a surpresa
+            do jeito certo.
           </p>
         </section>
       ) : showRotatePrompt ? (
         <section className="gate-screen">
           <p className="gate-eyebrow">Modo horizontal</p>
           <h1>Vire o celular para a horizontal</h1>
-          <p>Assim a tela do jogo aparece do jeito certo.</p>
+          <p>Em pe o jogo fica bloqueado. Na horizontal ele se ajusta sozinho.</p>
         </section>
       ) : (
         <section className="game-frame">
@@ -301,24 +339,23 @@ function App() {
               <h1>JOGO DA FORCA</h1>
               <button
                 className="primary-button intro-button"
-                onClick={startGame}>
+                onClick={handleStartGame}>
                 Iniciar
               </button>
+              <p className="intro-hint">Toque para testar em tela cheia.</p>
             </div>
           ) : screen === "ending" ? (
             <div className="ending-screen">
               <span className="ending-tag">Fim do jogo</span>
               <h1>Devolva o celular ao dono e finja que nada aconteceu.</h1>
-              <button className="primary-button" onClick={startGame}>
+              <button className="primary-button" onClick={handleStartGame}>
                 Recomecar
               </button>
             </div>
           ) : (
             <>
               <header className="top-bar">
-                <div>
-                  <p className="top-bar__label">{getPhaseLabel(screen)}</p>
-                </div>
+                <p className="top-bar__label">{getPhaseLabel(screen)}</p>
                 <div className="progress">
                   <div className="progress__track">
                     <div
@@ -368,24 +405,28 @@ function App() {
                   )}
 
                   <div className="finale-copy">
-                    <span className="ending-tag">Fase final</span>
-                    <h1>
-                      {finalStep === "ready" || finalStep === "official"
-                        ? "ENTAO E OFICIAL?"
-                        : "Estou nervoso, mas espera ai que tem mais..."}
-                    </h1>
+                    <div className="finale-copy__head">
+                      <span className="ending-tag">Fase final</span>
+                      <h1>
+                        {finalStep === "ready" || finalStep === "official"
+                          ? "ENTAO E OFICIAL?"
+                          : "Estou nervoso, mas espera ai que tem mais..."}
+                      </h1>
+                    </div>
 
-                    {finalStep === "ready" || finalStep === "official" ? (
-                      <button
-                        className="primary-button"
-                        onClick={handleOfficialMoment}>
-                        E OFICIAL
-                      </button>
-                    ) : (
-                      <p className="finale-hint">
-                        Segura mais um pouquinho enquanto a tela continua.
-                      </p>
-                    )}
+                    <div className="finale-copy__foot">
+                      {finalStep === "ready" || finalStep === "official" ? (
+                        <button
+                          className="primary-button"
+                          onClick={handleOfficialMoment}>
+                          E OFICIAL
+                        </button>
+                      ) : (
+                        <p className="finale-hint">
+                          Segura mais um pouquinho enquanto a tela continua.
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   <div className="polaroid-row">
@@ -400,8 +441,10 @@ function App() {
                   </div>
                 </section>
               ) : (
-                <section className="game-stage">
-                  <div className="phrase-panel">
+                <section
+                  className={`game-stage ${!hangmanActive ? "game-stage--solo" : ""}`}>
+                  <div
+                    className={`phrase-panel ${!hangmanActive ? "phrase-panel--solo" : ""}`}>
                     <PhraseBoard
                       phrase={currentPhrase}
                       guessedLetters={guessedLetters}

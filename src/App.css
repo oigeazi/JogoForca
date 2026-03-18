@@ -1,6 +1,7 @@
 .app-shell {
   position: relative;
-  min-height: 100vh;
+  width: 100%;
+  height: var(--app-height);
   overflow: hidden;
   background:
     radial-gradient(circle at top, rgba(244, 114, 182, 0.2), transparent 35%),
@@ -37,12 +38,14 @@
 .game-frame {
   position: relative;
   z-index: 1;
-  min-height: 100vh;
-  padding: 1.25rem;
+  width: min(100%, var(--app-width), 110rem);
+  height: 100%;
+  margin: 0 auto;
+  padding: clamp(0.9rem, 2vw, 1.5rem);
 }
 
 .intro-screen {
-  min-height: 100vh;
+  min-height: calc(100% - 2 * clamp(0.9rem, 2vw, 1.5rem));
 }
 
 .gate-screen,
@@ -87,41 +90,42 @@
 .game-frame {
   display: flex;
   flex-direction: column;
+  gap: 0.7rem;
+  overflow: hidden;
 }
 
 .top-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.5rem 1.15rem;
+  justify-content: flex-start;
+  gap: 0.75rem;
+  padding: 0.45rem 0.9rem;
   border: 1px solid rgba(244, 114, 182, 0.2);
-  border-radius: 1.5rem;
-  background: rgba(40, 18, 72, 0.72);
-  backdrop-filter: blur(14px);
-  margin-bottom: 1rem;
+  border-radius: 1rem;
+  background: rgba(40, 18, 72, 0.58);
+  backdrop-filter: blur(10px);
 }
 
 
 .progress {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  width: min(42vw, 17rem);
-  min-width: 12rem;
+  flex: 1;
+  gap: 0.55rem;
+  min-width: 0;
 }
 
 .progress__value {
   text-align: right;
   white-space: nowrap;
-  font-size: 0.88rem;
+  font-size: 0.78rem;
   color: #f5d0fe;
 }
 
 .progress__track {
-  flex-grow: 1;
+  flex: 1;
   overflow: hidden;
-  height: 0.7rem;
+  height: 0.5rem;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.12);
 }
@@ -136,10 +140,22 @@
 
 .game-stage {
   display: grid;
-  grid-template-columns: minmax(14rem, 0.78fr) minmax(0, 1.22fr);
-  grid-template-rows: auto 1fr;
+  grid-template-columns: minmax(15rem, 0.78fr) minmax(0, 1.22fr);
+  grid-template-areas:
+    "phrase phrase"
+    "hangman keyboard";
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 1rem;
   flex: 1;
+  align-items: stretch;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.game-stage--solo {
+  grid-template-columns: 1fr;
+  grid-template-areas: "phrase";
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .phrase-panel,
@@ -154,12 +170,18 @@
 }
 
 .phrase-panel {
-  grid-column: 1 / -1;
-  grid-row: 1;
+  grid-area: phrase;
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  padding: 1.35rem;
+  padding: clamp(1rem, 2.2vw, 1.4rem);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.phrase-panel--solo {
+  height: 100%;
+  justify-content: space-between;
 }
 
 .phrase-board {
@@ -167,23 +189,24 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 0.55rem;
-  min-height: 6.4rem;
+  gap: clamp(0.32rem, 1.2vw, 0.65rem);
+  min-height: clamp(5.25rem, 18vh, 8rem);
 }
 
 .phrase-board--large {
+  flex: 1;
   justify-content: center;
-  margin-top: auto;
-  margin-bottom: auto;
+  align-content: center;
+  margin: 0;
 }
 
 .phrase-slot {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 1.85rem;
-  min-height: 2.7rem;
-  font-size: 1.45rem;
+  min-width: clamp(1.15rem, 2.2vw, 1.85rem);
+  min-height: clamp(2rem, 5vw, 2.7rem);
+  font-size: clamp(1rem, 2.6vw, 1.45rem);
   text-transform: uppercase;
 }
 
@@ -193,7 +216,7 @@
 }
 
 .phrase-slot--fixed {
-  min-width: 0.9rem;
+  min-width: clamp(0.55rem, 1vw, 0.9rem);
   color: #f5d0fe;
 }
 
@@ -201,26 +224,27 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 0.75rem;
   font-size: 0.82rem;
   color: #ddd6fe;
 }
 
 .hangman-card {
-  flex-grow: 1;
-  grid-column: 1;
-  grid-row: 2;
+  grid-area: hangman;
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 14rem;
+  min-height: clamp(12rem, 28vh, 19rem);
   padding: 1rem;
   border-radius: 1.5rem;
   background: linear-gradient(180deg, rgba(91, 33, 182, 0.5), rgba(49, 9, 88, 0.12));
+  min-width: 0;
+  overflow: hidden;
 }
 
 .hangman-svg {
-  width: min(100%, 12.5rem);
+  width: min(100%, 14rem);
   height: auto;
   stroke: #fdf4ff;
   stroke-width: 7;
@@ -238,16 +262,18 @@
 }
 
 .keyboard-panel {
-  grid-column: 2;
-  grid-row: 2;
-  padding: 1rem;
-  max-width: 48rem;
+  --keyboard-columns: 7;
+  grid-area: keyboard;
+  padding: clamp(0.8rem, 1.8vw, 1rem);
+  min-width: 0;
+  overflow: hidden;
 }
 
 .keyboard {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.55rem;
+  grid-template-columns: repeat(var(--keyboard-columns), minmax(0, 1fr));
+  gap: clamp(0.38rem, 1vw, 0.65rem);
+  height: 100%;
   align-content: start;
 }
 
@@ -265,11 +291,12 @@
 }
 
 .key {
-  min-height: 4rem;
+  min-height: clamp(2.9rem, 8vh, 4.4rem);
   background: rgba(255, 255, 255, 0.1);
   color: #ffffff;
-  font-size: 2.5rem;
+  font-size: clamp(1.15rem, 3vw, 2rem);
   font-weight: 700;
+  padding: 0.25rem;
 }
 
 .key:disabled {
@@ -314,8 +341,15 @@
   min-width: 12rem;
 }
 
+.intro-hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #ddd6fe;
+}
+
 .proposal-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 1rem;
   margin-top: 1rem;
@@ -328,9 +362,13 @@
 .finale-screen {
   display: grid;
   grid-template-columns: 1.1fr 0.95fr;
+  grid-template-rows: minmax(0, 1fr);
   gap: 1rem;
   overflow: hidden;
-  padding: 1.35rem;
+  padding: clamp(1rem, 2.2vw, 1.35rem);
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
 }
 
 .finale-copy {
@@ -338,17 +376,28 @@
   z-index: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 1rem;
+  justify-content: space-between;
+  gap: 0.9rem;
+  min-width: 0;
+  min-height: 0;
+}
+
+.finale-copy__head,
+.finale-copy__foot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
 }
 
 .polaroid-row {
   position: relative;
   z-index: 1;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: 1rem;
+  min-height: 0;
 }
 
 .polaroid {
@@ -502,12 +551,11 @@
   }
 
   .top-bar {
-    padding: 0.9rem 1rem;
+    padding: 0.5rem 0.75rem;
   }
 
-  .game-stage,
-  .finale-screen {
-    min-height: calc(100vh - 7.8rem);
+  .progress {
+    gap: 0.5rem;
   }
 
   .phrase-panel,
@@ -534,20 +582,238 @@
     align-items: flex-start;
   }
 
+  .keyboard-panel {
+    --keyboard-columns: 6;
+  }
+
   .hangman-card {
     padding: 0.8rem;
   }
 
-  .keyboard {
-    gap: 0.42rem;
+  .polaroid {
+    width: 6.15rem;
+  }
+}
+
+@media (max-height: 430px) and (orientation: landscape) {
+  .gate-screen,
+  .game-frame {
+    padding: 0.55rem;
   }
 
-  .key {
-    min-height: 2.25rem;
+  .game-frame {
+    gap: 0.55rem;
+  }
+
+  .top-bar {
+    gap: 0.45rem;
+    padding: 0.42rem 0.65rem;
+    border-radius: 1rem;
+  }
+
+  .top-bar__label,
+  .gate-eyebrow,
+  .ending-tag {
+    font-size: 0.75rem;
+    letter-spacing: 0.14em;
+  }
+
+  .progress__track {
+    height: 0.42rem;
+  }
+
+  .progress__value,
+  .status-strip {
+    font-size: 0.72rem;
+  }
+
+  .game-stage {
+    grid-template-columns: minmax(8.5rem, 0.68fr) minmax(0, 1.32fr);
+    gap: 0.55rem;
+  }
+
+  .phrase-panel,
+  .hangman-card,
+  .keyboard-panel,
+  .finale-screen {
+    border-radius: 1rem;
+  }
+
+  .phrase-panel,
+  .keyboard-panel,
+  .finale-screen {
+    padding: 0.7rem;
+  }
+
+  .phrase-panel {
+    gap: 0.55rem;
+  }
+
+  .phrase-board {
+    min-height: 3.2rem;
+    gap: 0.24rem;
+  }
+
+  .phrase-slot {
+    min-width: 1rem;
+    min-height: 1.55rem;
     font-size: 0.92rem;
   }
 
+  .phrase-slot--fixed {
+    min-width: 0.45rem;
+  }
+
+  .status-strip {
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 0.45rem;
+  }
+
+  .hangman-card {
+    min-height: 0;
+    padding: 0.55rem;
+  }
+
+  .hangman-svg {
+    width: min(100%, 7.4rem);
+    stroke-width: 6;
+  }
+
+  .keyboard-panel {
+    --keyboard-columns: 7;
+  }
+
+  .keyboard {
+    gap: 0.32rem;
+  }
+
+  .key {
+    min-height: 2.15rem;
+    border-radius: 0.75rem;
+    font-size: 1rem;
+  }
+
+  .primary-button,
+  .secondary-button {
+    padding: 0.7rem 1rem;
+    font-size: 0.88rem;
+  }
+
+  .proposal-actions {
+    margin-top: 0.4rem;
+    gap: 0.55rem;
+  }
+
+  .finale-screen {
+    grid-template-columns: 1fr 0.9fr;
+    gap: 0.7rem;
+  }
+
+  .finale-copy {
+    gap: 0.45rem;
+  }
+
+  .finale-copy__head,
+  .finale-copy__foot {
+    gap: 0.45rem;
+  }
+
+  .polaroid-row {
+    gap: 0.55rem;
+  }
+
   .polaroid {
-    width: 6.15rem;
+    width: 4.2rem;
+    padding: 0.35rem 0.35rem 0.65rem;
+  }
+
+  .polaroid p {
+    margin-top: 0.35rem;
+    font-size: 0.58rem;
+  }
+}
+
+@media (max-width: 720px) {
+  .game-stage {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "phrase"
+      "keyboard"
+      "hangman";
+  }
+
+  .keyboard-panel {
+    --keyboard-columns: 5;
+  }
+
+  .hangman-card {
+    min-height: 10.5rem;
+  }
+
+  .hangman-svg {
+    width: min(100%, 11rem);
+  }
+
+  .finale-screen {
+    grid-template-columns: 1fr;
+  }
+
+  .finale-copy {
+    text-align: center;
+  }
+}
+
+@media (max-width: 720px) and (orientation: landscape) {
+  .game-stage {
+    grid-template-columns: minmax(8.5rem, 0.68fr) minmax(0, 1.32fr);
+    grid-template-areas:
+      "phrase phrase"
+      "hangman keyboard";
+  }
+
+  .keyboard-panel {
+    --keyboard-columns: 7;
+  }
+}
+
+@media (max-width: 480px) {
+  .top-bar__label {
+    font-size: 0.78rem;
+    letter-spacing: 0.14em;
+  }
+
+  .keyboard-panel {
+    --keyboard-columns: 4;
+  }
+
+  .key {
+    min-height: 3.2rem;
+  }
+
+  .primary-button,
+  .secondary-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) and (orientation: landscape) {
+  .primary-button,
+  .secondary-button {
+    width: auto;
+  }
+}
+
+@media (min-width: 1440px) {
+  .game-stage {
+    grid-template-columns: minmax(19rem, 0.72fr) minmax(0, 1.28fr);
+  }
+
+  .keyboard-panel {
+    --keyboard-columns: 8;
+  }
+
+  .hangman-svg {
+    width: min(100%, 16rem);
   }
 }
