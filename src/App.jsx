@@ -19,6 +19,7 @@ import {
   PROPOSAL_PHRASE,
   ROMANTIC_TRACK,
 } from "./content/gameContent";
+import logoJogoForca from "./assets/Logo Jogo Forca.png";
 import { useGameAudio } from "./hooks/useGameAudio";
 import {
   createConfettiPieces,
@@ -333,7 +334,11 @@ function App() {
         <section className="game-frame">
           {screen === "intro" ? (
             <div className="intro-screen">
-              <h1>JOGO DA FORCA</h1>
+              <img
+                className="intro-logo"
+                src={logoJogoForca}
+                alt="Logo Jogo da Forca"
+              />
               <button
                 className="primary-button intro-button"
                 onClick={handleStartGame}>
@@ -427,12 +432,16 @@ function App() {
 
                   {finalStep === "official" && (
                     <div className="polaroid-row">
-                      {POLAROIDS.map((label, index) => (
+                      {POLAROIDS.map((polaroid, index) => (
                         <article
-                          key={label}
+                          key={polaroid.label}
                           className={`polaroid polaroid--${index + 1}`}>
-                          <div className="polaroid__photo">Foto {index + 1}</div>
-                          <p>{label}</p>
+                          <img
+                            className="polaroid__photo"
+                            src={polaroid.image}
+                            alt={polaroid.label}
+                          />
+                          <p>{polaroid.label}</p>
                         </article>
                       ))}
                     </div>

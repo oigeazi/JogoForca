@@ -1,5 +1,8 @@
 import officialTrackFile from "../assets/Música Comemoração.mp3";
 import romanticTrackFile from "../assets/Música Romântica.mp3";
+import polaroid01 from "../assets/Polaroid-01.jpg";
+import polaroid02 from "../assets/Polaroid-02.jpg";
+import polaroid03 from "../assets/Polaroid-03.jpg";
 
 export const COMPLIMENT_OPTIONS = [
   "Você está linda",
@@ -33,7 +36,16 @@ export const HEARTS = Array.from({ length: 10 }, (_, index) => ({
 }));
 
 export const POLAROIDS = [
-  "Nosso sorriso favorito",
-  "Um dia para lembrar",
-  "Mais uma história juntos",
+  {
+    image: polaroid01,
+    label: "O melhor aniversário",
+  },
+  {
+    image: polaroid02,
+    label: "Visitinha especial",
+  },
+  {
+    image: polaroid03,
+    label: "Um passeio no shopping",
+  },
 ];
