@@ -30,8 +30,12 @@ import {
 } from "./utils/gameState";
 import { extractLetters, normalizeChar } from "./utils/text";
 
+const DEBUG_STAGE = "stage3-ready";
+// "stage3-ready"
+// "stage3-official"
+
 function App() {
-  const [screen, setScreen] = useState("intro");
+  const [screen, setScreen] = useState(DEBUG_STAGE ? "stage3" : "intro");
   const [selectedCompliment, setSelectedCompliment] = useState(
     COMPLIMENT_OPTIONS[0],
   );
@@ -40,7 +44,13 @@ function App() {
   const [modal, setModal] = useState(null);
   const [noCount, setNoCount] = useState(0);
   const [statusText, setStatusText] = useState("");
-  const [finalStep, setFinalStep] = useState("waiting");
+  const [finalStep, setFinalStep] = useState(
+    DEBUG_STAGE === "stage3-ready"
+      ? "ready"
+      : DEBUG_STAGE === "stage3-official"
+        ? "official"
+        : "waiting",
+  );
   const [confettiPieces, setConfettiPieces] = useState([]);
   const [viewport, setViewport] = useState({
     width: window.innerWidth,
