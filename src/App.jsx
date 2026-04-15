@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
 } from "react";
+import confetti from "canvas-confetti";
 import "./App.css";
 import FloatingHeart from "./components/FloatingHeart";
 import GameModal from "./components/GameModal";
@@ -22,15 +23,10 @@ import {
 } from "./content/gameContent";
 import logoJogoForca from "./assets/Logo Jogo Forca.png";
 import { useGameAudio } from "./hooks/useGameAudio";
-import {
-  createConfettiPieces,
-  getPhaseLabel,
-  getProgress,
-  pickRandomItem,
-} from "./utils/gameState";
+import { getPhaseLabel, getProgress, pickRandomItem } from "./utils/gameState";
 import { extractLetters, normalizeChar } from "./utils/text";
 
-const DEBUG_STAGE = "stage3-ready";
+const DEBUG_STAGE = null;
 // "stage3-ready"
 // "stage3-official"
 
@@ -51,13 +47,15 @@ function App() {
         ? "official"
         : "waiting",
   );
-  const [confettiPieces, setConfettiPieces] = useState([]);
   const [viewport, setViewport] = useState({
     width: window.innerWidth,
     height: window.innerHeight,
   });
 
   const advanceTimerRef = useRef(null);
+  const confettiCanvasRef = useRef(null);
+  const confettiLauncherRef = useRef(null);
+  const confettiHeartsRef = useRef([]);
   const finaleTimerRef = useRef(null);
   const romanticStartedRef = useRef(false);
   const { playTrack, stopAllAudio } = useGameAudio();
@@ -141,7 +139,6 @@ function App() {
     setNoCount(0);
     setStatusText("");
     setFinalStep("waiting");
-    setConfettiPieces([]);
   }
 
   async function handleStartGame() {
@@ -281,10 +278,36 @@ function App() {
     clearFinaleTimer();
     finaleTimerRef.current = window.setTimeout(() => {
       setFinalStep("ready");
-    }, 3000);
+    }, 10000);
 
     return () => clearFinaleTimer();
   }, [finalStep, screen]);
+
+  useEffect(() => {
+    if (screen !== "stage3" || !confettiCanvasRef.current) {
+      confettiLauncherRef.current?.reset?.();
+      confettiLauncherRef.current = null;
+      confettiHeartsRef.current = [];
+      return;
+    }
+
+    confettiLauncherRef.current = confetti.create(confettiCanvasRef.current, {
+      resize: true,
+      useWorker: true,
+    });
+    confettiHeartsRef.current = [
+      confetti.shapeFromText({ text: "❤️", scalar: 2.1, color: "#fbcfe8" }),
+      confetti.shapeFromText({ text: "🤍", scalar: 2.1, color: "#f472b6" }),
+      confetti.shapeFromText({ text: "💜", scalar: 2.1, color: "#ec4899" }),
+      confetti.shapeFromText({ text: "❤️", scalar: 2.1, color: "#88dd18" }),
+    ];
+
+    return () => {
+      confettiLauncherRef.current?.reset?.();
+      confettiLauncherRef.current = null;
+      confettiHeartsRef.current = [];
+    };
+  }, [screen]);
 
   useEffect(() => {
     return () => {
@@ -317,12 +340,61 @@ function App() {
     setModal(null);
     setScreen("stage3");
     setFinalStep("waiting");
-    setConfettiPieces([]);
   }
 
   function handleOfficialMoment() {
     setFinalStep("official");
-    setConfettiPieces(createConfettiPieces());
+
+    const launch = confettiLauncherRef.current;
+    const heartShapes = confettiHeartsRef.current;
+
+    if (!launch || heartShapes.length === 0) {
+      return;
+    }
+
+    const end = Date.now() + 2400;
+    const defaults = {
+      scalar: 1.8,
+      startVelocity: 18,
+      ticks: 160,
+      gravity: 0.55,
+      decay: 0.96,
+      drift: 0.15,
+      shapes: heartShapes,
+      zIndex: 3,
+      disableForReducedMotion: false,
+    };
+
+    function frame() {
+      void launch({
+        ...defaults,
+        particleCount: 1,
+        spread: 70,
+        origin: { x: 0.18, y: 0.72 },
+      });
+
+      void launch({
+        ...defaults,
+        particleCount: 2,
+        spread: 70,
+        origin: { x: 0.82, y: 0.72 },
+      });
+
+      void launch({
+        ...defaults,
+        particleCount: 1,
+        spread: 50,
+        origin: { x: 0.5, y: 0.6 },
+        scalar: 1.5,
+        startVelocity: 22,
+      });
+
+      if (Date.now() < end) {
+        window.requestAnimationFrame(frame);
+      }
+    }
+
+    frame();
   }
 
   return (
@@ -391,6 +463,12 @@ function App() {
               {screen === "stage3" ? (
                 <section
                   className={`finale-screen ${finalStep === "official" ? "finale-screen--official" : "finale-screen--centered"}`}>
+                  <canvas
+                    ref={confettiCanvasRef}
+                    className="confetti-canvas"
+                    aria-hidden="true"
+                  />
+
                   <div className="hearts-layer" aria-hidden="true">
                     {HEARTS.map((heart) => (
                       <span
@@ -407,24 +485,6 @@ function App() {
                       </span>
                     ))}
                   </div>
-
-                  {finalStep === "official" && (
-                    <div className="confetti-layer" aria-hidden="true">
-                      {confettiPieces.map((piece) => (
-                        <span
-                          key={piece.id}
-                          className="confetti"
-                          style={{
-                            left: piece.left,
-                            animationDelay: piece.delay,
-                            animationDuration: piece.duration,
-                            backgroundColor: piece.color,
-                            rotate: piece.rotate,
-                          }}
-                        />
-                      ))}
-                    </div>
-                  )}
 
                   <div className="finale-copy">
                     <div className="finale-copy__head">

@@ -2,19 +2,6 @@ export function pickRandomItem(items) {
   return items[Math.floor(Math.random() * items.length)]
 }
 
-export function createConfettiPieces() {
-  const colors = ['#f0abfc', '#c084fc', '#8b5cf6', '#f9a8d4', '#fef08a', '#ffffff']
-
-  return Array.from({ length: 48 }, (_, index) => ({
-    id: `confetti-${index}-${Date.now()}`,
-    left: `${Math.random() * 100}%`,
-    delay: `${Math.random() * 0.8}s`,
-    duration: `${2.3 + Math.random() * 1.8}s`,
-    rotate: `${-180 + Math.random() * 360}deg`,
-    color: colors[index % colors.length],
-  }))
-}
-
 export function getProgress(screen, finalStep) {
   if (screen === 'intro') {
     return 0
