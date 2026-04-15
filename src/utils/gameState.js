@@ -21,30 +21,42 @@ export function getProgress(screen, finalStep) {
   }
 
   if (screen === 'stage1') {
-    return 34
+    return 20
   }
 
-  if (screen === 'stage2-guess' || screen === 'stage2-choice') {
-    return 67
+  if (screen === 'stage2-guess') {
+    return 40
+  }
+
+  if (screen === 'stage2-choice') {
+    return 60
   }
 
   if (screen === 'stage3') {
-    return finalStep === 'official' ? 100 : 84
+    return finalStep === 'official' ? 100 : 80
   }
 
   return 100
 }
 
-export function getPhaseLabel(screen) {
+export function getPhaseLabel(screen, finalStep) {
   if (screen === 'stage1') {
-    return 'Fase 1 de 3'
+    return 'Fase 1 de 5'
   }
 
-  if (screen === 'stage2-guess' || screen === 'stage2-choice') {
-    return 'Fase 2 de 3'
+  if (screen === 'stage2-guess') {
+    return 'Fase 2 de 5'
   }
 
-  return 'Fase 3 de 3'
+  if (screen === 'stage2-choice') {
+    return 'Fase 3 de 5'
+  }
+
+  if (screen === 'stage3' && finalStep !== 'official') {
+    return 'Fase 4 de 5'
+  }
+
+  return 'PARABÉNS! AGORA SOMOS NAMORADOS'
 }
 
 export function getStageTitle(screen) {

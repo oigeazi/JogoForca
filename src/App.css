@@ -116,6 +116,14 @@
   backdrop-filter: blur(10px);
 }
 
+.top-bar--celebration {
+  justify-content: center;
+}
+
+.top-bar--celebration .top-bar__label {
+  text-align: center;
+}
+
 
 .progress {
   display: flex;

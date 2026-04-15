@@ -270,7 +270,7 @@ function App() {
     clearFinaleTimer();
     finaleTimerRef.current = window.setTimeout(() => {
       setFinalStep("ready");
-    }, 30000);
+    }, 3000);
 
     return () => clearFinaleTimer();
   }, [finalStep, screen]);
@@ -357,19 +357,24 @@ function App() {
             </div>
           ) : (
             <>
-              <header className="top-bar">
-                <p className="top-bar__label">{getPhaseLabel(screen)}</p>
-                <div className="progress">
-                  <div className="progress__track">
-                    <div
-                      className="progress__fill"
-                      style={{ width: `${progressValue}%` }}
-                    />
+              <header
+                className={`top-bar ${screen === "stage3" && finalStep === "official" ? "top-bar--celebration" : ""}`}>
+                <p className="top-bar__label">
+                  {getPhaseLabel(screen, finalStep)}
+                </p>
+                {!(screen === "stage3" && finalStep === "official") && (
+                  <div className="progress">
+                    <div className="progress__track">
+                      <div
+                        className="progress__fill"
+                        style={{ width: `${progressValue}%` }}
+                      />
+                    </div>
+                    <span className="progress__value">
+                      {Math.round(progressValue)}%
+                    </span>
                   </div>
-                  <span className="progress__value">
-                    {Math.round(progressValue)}%
-                  </span>
-                </div>
+                )}
               </header>
 
               {screen === "stage3" ? (
