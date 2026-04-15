@@ -24,7 +24,7 @@ export const COMPLIMENT_OPTIONS = [
 
 export const PROPOSAL_PHRASE = "QUER NAMORAR COMIGO?";
 export const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
-export const MAX_ERRORS = 6;
+export const MAX_ERRORS = 8;
 export const ROMANTIC_TRACK = romanticTrackFile;
 export const OFFICIAL_TRACK = officialTrackFile;
 
