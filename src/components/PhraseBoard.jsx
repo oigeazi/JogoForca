@@ -1,6 +1,13 @@
 import { normalizeChar } from '../utils/text'
 
-function PhraseBoard({ phrase, guessedLetters, revealAll = false, hideQuestionMark = false, large = false }) {
+function PhraseBoard({
+  phrase,
+  guessedLetters,
+  revealAll = false,
+  hideQuestionMark = false,
+  large = false,
+  clean = false,
+}) {
   function revealCharacter(char) {
     if (char === '?' && hideQuestionMark && !revealAll) {
       return ''
@@ -24,7 +31,13 @@ function PhraseBoard({ phrase, guessedLetters, revealAll = false, hideQuestionMa
         return (
           <span
             key={`${char}-${index}`}
-            className={`phrase-slot ${normalized ? 'phrase-slot--letter' : 'phrase-slot--fixed'}`}
+            className={`phrase-slot ${
+              normalized || clean
+                ? clean
+                  ? 'phrase-slot--clean'
+                  : 'phrase-slot--letter'
+                : 'phrase-slot--fixed'
+            }`}
           >
             {visible}
           </span>

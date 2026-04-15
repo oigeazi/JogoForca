@@ -76,7 +76,7 @@
   margin: 0;
   font-size: clamp(2rem, 5vw, 3.1rem);
   line-height: 0.95;
-  text-transform: uppercase;
+  /* text-transform: uppercase; */
 }
 
 .gate-screen p,
@@ -193,6 +193,13 @@
   justify-content: space-between;
 }
 
+.phrase-panel--choice {
+  justify-content: center;
+  align-items: center;
+  gap: 0.8rem;
+  text-align: center;
+}
+
 .phrase-board {
   display: flex;
   flex-wrap: wrap;
@@ -203,10 +210,11 @@
 }
 
 .phrase-board--large {
-  flex: 1;
+  flex: 0 1 auto;
   justify-content: center;
   align-content: center;
   margin: 0;
+  width: 100%;
 }
 
 .phrase-slot {
@@ -221,6 +229,14 @@
 
 .phrase-slot--letter {
   border-bottom: 3px solid rgba(250, 245, 255, 0.76);
+  color: #ffffff;
+}
+
+.phrase-slot--clean {
+  min-width: auto;
+  font-size: clamp(1.7rem, 4.8vw, 3rem);
+  font-weight: 700;
+  letter-spacing: 0.14em;
   color: #ffffff;
 }
 
@@ -360,8 +376,9 @@
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
+  align-items: center;
   gap: 1rem;
-  margin-top: 1rem;
+  margin-top: 0;
 }
 
 .proposal-actions--modal {
@@ -371,7 +388,6 @@
 .finale-screen {
   display: grid;
   grid-template-columns: 1fr;
-  grid-template-rows: auto 1fr;
   gap: 1.15rem;
   overflow: hidden;
   padding: clamp(1rem, 2.2vw, 1.35rem);
@@ -379,6 +395,15 @@
   min-height: 0;
   align-items: stretch;
   justify-items: center;
+}
+
+.finale-screen--centered {
+  grid-template-rows: 1fr;
+  align-items: center;
+}
+
+.finale-screen--official {
+  grid-template-rows: auto 1fr;
 }
 
 .finale-copy {
@@ -394,13 +419,28 @@
   text-align: center;
 }
 
+.finale-screen--centered .finale-copy {
+  min-height: 100%;
+  justify-content: center;
+}
+
 .finale-copy__head,
 .finale-copy__foot {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 0.7rem;
   width: 100%;
+  text-align: center;
+}
+
+.finale-copy__head h1,
+.finale-copy__foot h1 {
+  width: 100%;
+  margin: 0;
+  text-align: center;
+  text-wrap: balance;
 }
 
 .finale-couple-name {
@@ -594,6 +634,10 @@
     font-size: 1.18rem;
   }
 
+  .phrase-slot--clean {
+    font-size: clamp(1.45rem, 4.2vw, 2.4rem);
+  }
+
   .status-strip {
     flex-direction: column;
     align-items: flex-start;
@@ -682,6 +726,11 @@
     min-width: 0.45rem;
   }
 
+  .phrase-slot--clean {
+    font-size: clamp(1.2rem, 3vw, 1.9rem);
+    letter-spacing: 0.1em;
+  }
+
   .status-strip {
     flex-direction: row;
     justify-content: space-between;
@@ -714,12 +763,12 @@
 
   .primary-button,
   .secondary-button {
-    padding: 0.7rem 1rem;
+    padding: 0.7rem 1.8rem;
     font-size: 0.88rem;
   }
 
   .proposal-actions {
-    margin-top: 0.4rem;
+    margin-top: 0;
     gap: 0.55rem;
   }
 

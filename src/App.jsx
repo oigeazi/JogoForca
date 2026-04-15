@@ -63,6 +63,7 @@ function App() {
   const progressValue = getProgress(screen, finalStep);
   const revealFullPhrase = screen === "stage2-choice";
   const hideQuestionMark = screen === "stage2-guess";
+  const showProposalChoice = screen === "stage2-choice";
 
   function clearRoundTimer() {
     if (advanceTimerRef.current) {
@@ -372,7 +373,8 @@ function App() {
               </header>
 
               {screen === "stage3" ? (
-                <section className="finale-screen">
+                <section
+                  className={`finale-screen ${finalStep === "official" ? "finale-screen--official" : "finale-screen--centered"}`}>
                   <div className="hearts-layer" aria-hidden="true">
                     {HEARTS.map((heart) => (
                       <span
@@ -451,23 +453,26 @@ function App() {
                 <section
                   className={`game-stage ${!hangmanActive ? "game-stage--solo" : ""}`}>
                   <div
-                    className={`phrase-panel ${!hangmanActive ? "phrase-panel--solo" : ""}`}>
+                    className={`phrase-panel ${!hangmanActive ? "phrase-panel--solo" : ""} ${showProposalChoice ? "phrase-panel--choice" : ""}`}>
                     <PhraseBoard
                       phrase={currentPhrase}
                       guessedLetters={guessedLetters}
                       revealAll={revealFullPhrase}
                       hideQuestionMark={hideQuestionMark}
                       large={screen === "stage2-choice"}
+                      clean={screen === "stage2-choice"}
                     />
 
-                    <div className="status-strip">
-                      <span>
-                        {statusText || `Erros permitidos: ${MAX_ERRORS}`}
-                      </span>
-                      <span>
-                        Letras erradas: {wrongLetters.join(" ") || "nenhuma"}
-                      </span>
-                    </div>
+                    {!showProposalChoice && (
+                      <div className="status-strip">
+                        <span>
+                          {statusText || `Erros permitidos: ${MAX_ERRORS}`}
+                        </span>
+                        <span>
+                          Letras erradas: {wrongLetters.join(" ") || "nenhuma"}
+                        </span>
+                      </div>
+                    )}
 
                     {screen === "stage2-choice" && (
                       <div className="proposal-actions">
@@ -479,7 +484,7 @@ function App() {
                         <button
                           className="secondary-button"
                           onClick={handleProposalNo}>
-                          NAO
+                          NÃO
                         </button>
                       </div>
                     )}
