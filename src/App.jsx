@@ -6,6 +6,7 @@ import {
   useState,
 } from "react";
 import "./App.css";
+import FloatingHeart from "./components/FloatingHeart";
 import GameModal from "./components/GameModal";
 import HangmanDrawing from "./components/HangmanDrawing";
 import PhraseBoard from "./components/PhraseBoard";
@@ -390,8 +391,10 @@ function App() {
                           animationDelay: heart.delay,
                           width: heart.size,
                           height: heart.size,
-                        }}
-                      />
+                          rotate: heart.rotate,
+                        }}>
+                        <FloatingHeart className="heart-svg" />
+                      </span>
                     ))}
                   </div>
 
@@ -416,7 +419,7 @@ function App() {
                   <div className="finale-copy">
                     <div className="finale-copy__head">
                       {finalStep === "official" ? (
-                        <h1 className="finale-couple-name">GEAZI & ESTER</h1>
+                        <h1 className="finale-couple-name">Geazi & Ester</h1>
                       ) : (
                         <h1>
                           {finalStep === "ready"

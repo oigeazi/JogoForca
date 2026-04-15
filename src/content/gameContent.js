@@ -32,7 +32,8 @@ export const HEARTS = Array.from({ length: 10 }, (_, index) => ({
   id: `heart-${index}`,
   left: `${6 + index * 9}%`,
   delay: `${index * 0.45}s`,
-  size: `${18 + (index % 4) * 8}px`,
+  size: `${34 + (index % 4) * 16}px`,
+  rotate: `${[-25, 0, 5, -8, 18][index % 5]}deg`,
 }));
 
 export const POLAROIDS = [
