@@ -76,8 +76,11 @@ function App() {
   const recorderMimeTypeRef = useRef("");
   const recordedChunksRef = useRef([]);
   const recorderStopTimerRef = useRef(null);
+  const recorderStreamRef = useRef(null);
+  const recordingAudioContextRef = useRef(null);
+  const recordingArmedRef = useRef(false);
   const shouldDownloadRecordingRef = useRef(true);
-  const { playTrack, stopAllAudio } = useGameAudio();
+  const { getRecordingAudioStream, playTrack, stopAllAudio } = useGameAudio();
 
   const isMobileViewport = viewport.width <= 950;
   const isLandscape = viewport.width > viewport.height;
@@ -105,6 +108,10 @@ function App() {
   function getRecordingUnavailableReason() {
     if (!shouldRecordOnThisDevice) {
       return "A gravacao fica desativada fora do celular.";
+    }
+
+    if (!recordingArmedRef.current) {
+      return "A gravacao so sera ativada se voce tocar no logo antes de iniciar.";
     }
 
     if (!isSecureRuntime) {
@@ -169,9 +176,20 @@ function App() {
     cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
     cameraStreamRef.current = null;
     cameraPreparePromiseRef.current = null;
+    recordingArmedRef.current = false;
 
     if (cameraVideoRef.current) {
       cameraVideoRef.current.srcObject = null;
+    }
+  }
+
+  function releaseRecorderStream() {
+    recorderStreamRef.current?.getTracks().forEach((track) => track.stop());
+    recorderStreamRef.current = null;
+
+    if (recordingAudioContextRef.current) {
+      void recordingAudioContextRef.current.close();
+      recordingAudioContextRef.current = null;
     }
   }
 
@@ -198,6 +216,56 @@ function App() {
     );
   }
 
+  async function createRecorderStream(baseStream) {
+    const videoTracks = baseStream.getVideoTracks();
+    const microphoneTracks = baseStream.getAudioTracks();
+    const appAudioStream = getRecordingAudioStream();
+    const hasAppAudio =
+      Boolean(appAudioStream) && appAudioStream.getAudioTracks().length > 0;
+
+    releaseRecorderStream();
+
+    if (microphoneTracks.length === 0 && !hasAppAudio) {
+      return new MediaStream(videoTracks);
+    }
+
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+
+    if (!AudioContextClass) {
+      return new MediaStream([...videoTracks, ...microphoneTracks]);
+    }
+
+    const recordingAudioContext = new AudioContextClass();
+    const mixedDestination = recordingAudioContext.createMediaStreamDestination();
+
+    if (recordingAudioContext.state === "suspended") {
+      await recordingAudioContext.resume();
+    }
+
+    if (microphoneTracks.length > 0) {
+      const microphoneStream = new MediaStream(microphoneTracks);
+      const microphoneSource =
+        recordingAudioContext.createMediaStreamSource(microphoneStream);
+      microphoneSource.connect(mixedDestination);
+    }
+
+    if (hasAppAudio) {
+      const appAudioSource =
+        recordingAudioContext.createMediaStreamSource(appAudioStream);
+      appAudioSource.connect(mixedDestination);
+    }
+
+    const recorderStream = new MediaStream([
+      ...videoTracks,
+      ...mixedDestination.stream.getAudioTracks(),
+    ]);
+
+    recorderStreamRef.current = recorderStream;
+    recordingAudioContextRef.current = recordingAudioContext;
+
+    return recorderStream;
+  }
+
   function getCameraVideoConstraints() {
     const supportedConstraints =
       navigator.mediaDevices?.getSupportedConstraints?.() ?? {};
@@ -219,11 +287,19 @@ function App() {
   }
 
   async function prepararCamera() {
+    if (!shouldRecordOnThisDevice) {
+      setCameraFeedback("A gravacao fica desativada fora do celular.");
+      recordingArmedRef.current = false;
+      return false;
+    }
+
+    recordingArmedRef.current = true;
     const unavailableReason = getRecordingUnavailableReason();
 
     if (unavailableReason) {
       setCameraFeedback(unavailableReason);
       console.warn(unavailableReason);
+      recordingArmedRef.current = false;
       return false;
     }
 
@@ -251,11 +327,13 @@ function App() {
         cameraStreamRef.current = stream;
         attachCameraStream(stream);
         setCameraFeedback("");
+        recordingArmedRef.current = true;
         return true;
       })
       .catch((error) => {
         setCameraFeedback("A camera foi bloqueada ou nao ficou disponivel.");
         console.error("Nao foi possivel preparar a camera.", error);
+        recordingArmedRef.current = false;
         return false;
       })
       .finally(() => {
@@ -282,7 +360,7 @@ function App() {
   }
 
   async function iniciarGravacao() {
-    if (!shouldRecordOnThisDevice) {
+    if (!shouldRecordOnThisDevice || !recordingArmedRef.current) {
       return false;
     }
 
@@ -311,10 +389,11 @@ function App() {
     recordedChunksRef.current = [];
 
     try {
+      const recorderStream = await createRecorderStream(cameraStreamRef.current);
       const mimeType = getSupportedRecorderMimeType();
       const recorder = mimeType
-        ? new MediaRecorder(cameraStreamRef.current, { mimeType })
-        : new MediaRecorder(cameraStreamRef.current);
+        ? new MediaRecorder(recorderStream, { mimeType })
+        : new MediaRecorder(recorderStream);
 
       recorderMimeTypeRef.current = recorder.mimeType || mimeType || "";
       recorderRef.current = recorder;
@@ -344,6 +423,7 @@ function App() {
         recordedChunksRef.current = [];
         recorderMimeTypeRef.current = "";
         recorderRef.current = null;
+        releaseRecorderStream();
         releaseCameraStream();
       };
 
@@ -351,6 +431,7 @@ function App() {
         console.error("Erro durante a gravacao.", event.error);
         clearRecorderStopTimer();
         recorderRef.current = null;
+        releaseRecorderStream();
         releaseCameraStream();
       };
 
@@ -358,6 +439,7 @@ function App() {
       return true;
     } catch (error) {
       console.error("Nao foi possivel iniciar a gravacao.", error);
+      releaseRecorderStream();
       releaseCameraStream();
       return false;
     }
@@ -415,14 +497,11 @@ function App() {
   }
 
   async function iniciarJogo() {
-    if (shouldRecordOnThisDevice) {
-      await prepararCamera();
-    }
     await enterFullscreen();
     clearRoundTimer();
     clearFinaleTimer();
     clearRecorderStopTimer();
-    if (shouldRecordOnThisDevice) {
+    if (shouldRecordOnThisDevice && recordingArmedRef.current) {
       await iniciarGravacao();
     }
     stopAllAudio();
@@ -613,6 +692,7 @@ function App() {
         return;
       }
 
+      releaseRecorderStream();
       releaseCameraStream();
       stopAudioOnCleanup();
     };

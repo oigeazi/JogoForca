@@ -3,7 +3,36 @@ import { useEffect, useEffectEvent, useRef } from 'react'
 export function useGameAudio() {
   const htmlAudioRef = useRef(null)
   const audioContextRef = useRef(null)
+  const masterGainRef = useRef(null)
+  const recordingDestinationRef = useRef(null)
   const synthTimerRef = useRef(null)
+
+  function ensureAudioGraph() {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext
+
+    if (!AudioContextClass) {
+      return null
+    }
+
+    if (!audioContextRef.current) {
+      const context = new AudioContextClass()
+      const masterGain = context.createGain()
+      const recordingDestination = context.createMediaStreamDestination()
+
+      masterGain.connect(context.destination)
+      masterGain.connect(recordingDestination)
+
+      audioContextRef.current = context
+      masterGainRef.current = masterGain
+      recordingDestinationRef.current = recordingDestination
+    }
+
+    return {
+      context: audioContextRef.current,
+      masterGain: masterGainRef.current,
+      recordingDestination: recordingDestinationRef.current,
+    }
+  }
 
   function stopSynth() {
     if (synthTimerRef.current) {
@@ -23,19 +52,15 @@ export function useGameAudio() {
   }
 
   function startSynthTrack(kind, loop = true) {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext
+    const audioGraph = ensureAudioGraph()
 
-    if (!AudioContextClass) {
+    if (!audioGraph) {
       return
-    }
-
-    if (!audioContextRef.current) {
-      audioContextRef.current = new AudioContextClass()
     }
 
     stopSynth()
 
-    const context = audioContextRef.current
+    const { context, masterGain } = audioGraph
     const config =
       kind === 'official'
         ? {
@@ -72,7 +97,7 @@ export function useGameAudio() {
       gain.gain.exponentialRampToValueAtTime(0.0001, now + config.duration)
 
       oscillator.connect(gain)
-      gain.connect(context.destination)
+      gain.connect(masterGain)
       oscillator.start(now)
       oscillator.stop(now + config.duration + 0.03)
 
@@ -93,10 +118,12 @@ export function useGameAudio() {
     const { loop = true } = options
     stopAllAudio()
 
+    const audioGraph = ensureAudioGraph()
     const audio = new Audio(src)
     audio.loop = loop
     audio.volume = volume
     audio.preload = 'auto'
+    audio.crossOrigin = 'anonymous'
     htmlAudioRef.current = audio
 
     const fallback = () => {
@@ -109,10 +136,25 @@ export function useGameAudio() {
     audio.addEventListener('error', fallback, { once: true })
 
     try {
+      if (audioGraph) {
+        if (audioGraph.context.state === 'suspended') {
+          await audioGraph.context.resume()
+        }
+
+        const source = audioGraph.context.createMediaElementSource(audio)
+        source.connect(audioGraph.masterGain)
+      }
+
       await audio.play()
     } catch {
       fallback()
     }
+  }
+
+  function getRecordingAudioStream() {
+    const audioGraph = ensureAudioGraph()
+
+    return audioGraph?.recordingDestination?.stream ?? null
   }
 
   const stopAudioOnUnmount = useEffectEvent(() => {
@@ -130,6 +172,7 @@ export function useGameAudio() {
   }, [])
 
   return {
+    getRecordingAudioStream,
     playTrack,
     stopAllAudio,
   }
