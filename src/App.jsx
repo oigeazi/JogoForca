@@ -49,6 +49,7 @@ function App() {
   const [wrongLetters, setWrongLetters] = useState([]);
   const [modal, setModal] = useState(null);
   const [noCount, setNoCount] = useState(0);
+  const [wrongAnswerCountdown, setWrongAnswerCountdown] = useState(7);
   const [statusText, setStatusText] = useState("");
   const [cameraFeedback, setCameraFeedback] = useState("");
   const [finalStep, setFinalStep] = useState(
@@ -80,12 +81,18 @@ function App() {
   const recordingAudioContextRef = useRef(null);
   const recordingArmedRef = useRef(false);
   const shouldDownloadRecordingRef = useRef(true);
+  const roundTimerCallbackRef = useRef(null);
+  const roundTimerRemainingRef = useRef(0);
+  const roundTimerStartedAtRef = useRef(0);
+  const finaleTimerRemainingRef = useRef(10000);
+  const finaleTimerStartedAtRef = useRef(0);
   const { getRecordingAudioStream, playTrack, stopAllAudio } = useGameAudio();
 
   const isMobileViewport = viewport.width <= 950;
   const isLandscape = viewport.width > viewport.height;
   const showDesktopBlock = !isMobileViewport;
   const showRotatePrompt = isMobileViewport && !isLandscape;
+  const isViewportBlocked = showDesktopBlock || showRotatePrompt;
   const isSecureRuntime =
     typeof window !== "undefined" ? window.isSecureContext : false;
   const canRequestUserMedia =
@@ -107,39 +114,50 @@ function App() {
 
   function getRecordingUnavailableReason() {
     if (!shouldRecordOnThisDevice) {
-      return "A gravacao fica desativada fora do celular.";
+      return "A gravação fica desativada fora do celular.";
     }
 
     if (!recordingArmedRef.current) {
-      return "A gravacao so sera ativada se voce tocar no logo antes de iniciar.";
+      return "A gravação só será ativada se você tocar no logo antes de iniciar.";
     }
 
     if (!isSecureRuntime) {
-      return `Para liberar a camera no celular, abra em HTTPS. ${window.location.origin} nao e um contexto seguro para getUserMedia nesse aparelho.`;
+      return `Para liberar a câmera no celular, abra em HTTPS. ${window.location.origin} não é um contexto seguro para getUserMedia nesse aparelho.`;
     }
 
     if (!canRequestUserMedia) {
-      return "Este navegador nao disponibilizou acesso a camera.";
+      return "Este navegador não disponibilizou acesso à câmera.";
     }
 
     if (!canRecordMedia) {
-      return "Este navegador nao suporta gravacao com MediaRecorder.";
+      return "Este navegador não suporta gravação com MediaRecorder.";
     }
 
     return "";
   }
 
-  function clearRoundTimer() {
+  function clearRoundTimer(resetState = true) {
     if (advanceTimerRef.current) {
       window.clearTimeout(advanceTimerRef.current);
       advanceTimerRef.current = null;
     }
+
+    if (resetState) {
+      roundTimerCallbackRef.current = null;
+      roundTimerRemainingRef.current = 0;
+      roundTimerStartedAtRef.current = 0;
+    }
   }
 
-  function clearFinaleTimer() {
+  function clearFinaleTimer(resetState = true) {
     if (finaleTimerRef.current) {
       window.clearTimeout(finaleTimerRef.current);
       finaleTimerRef.current = null;
+    }
+
+    if (resetState) {
+      finaleTimerRemainingRef.current = 10000;
+      finaleTimerStartedAtRef.current = 0;
     }
   }
 
@@ -158,7 +176,7 @@ function App() {
     cameraVideoRef.current.srcObject = stream;
     const previewPlayback = cameraVideoRef.current.play();
     previewPlayback?.catch(() => {
-      // O preview fica invisivel e pode ser bloqueado sem afetar a gravacao.
+      // O preview fica invisível e pode ser bloqueado sem afetar a gravação.
     });
   }
 
@@ -288,7 +306,7 @@ function App() {
 
   async function prepararCamera() {
     if (!shouldRecordOnThisDevice) {
-      setCameraFeedback("A gravacao fica desativada fora do celular.");
+      setCameraFeedback("A gravação fica desativada fora do celular.");
       recordingArmedRef.current = false;
       return false;
     }
@@ -331,8 +349,8 @@ function App() {
         return true;
       })
       .catch((error) => {
-        setCameraFeedback("A camera foi bloqueada ou nao ficou disponivel.");
-        console.error("Nao foi possivel preparar a camera.", error);
+        setCameraFeedback("A câmera foi bloqueada ou não ficou disponível.");
+        console.error("Não foi possível preparar a câmera.", error);
         recordingArmedRef.current = false;
         return false;
       })
@@ -369,7 +387,7 @@ function App() {
       (recorderRef.current && recorderRef.current.state !== "inactive")
     ) {
       if (typeof MediaRecorder === "undefined") {
-        console.warn("MediaRecorder nao esta disponivel neste navegador.");
+        console.warn("MediaRecorder não está disponível neste navegador.");
         return false;
       }
 
@@ -428,7 +446,7 @@ function App() {
       };
 
       recorder.onerror = (event) => {
-        console.error("Erro durante a gravacao.", event.error);
+        console.error("Erro durante a gravação.", event.error);
         clearRecorderStopTimer();
         recorderRef.current = null;
         releaseRecorderStream();
@@ -438,7 +456,7 @@ function App() {
       recorder.start(1000);
       return true;
     } catch (error) {
-      console.error("Nao foi possivel iniciar a gravacao.", error);
+      console.error("Não foi possível iniciar a gravação.", error);
       releaseRecorderStream();
       releaseCameraStream();
       return false;
@@ -464,15 +482,101 @@ function App() {
     clearRoundTimer();
   }
 
+  function runRoundTimerCallback() {
+    const callback = roundTimerCallbackRef.current;
+
+    clearRoundTimer();
+
+    if (callback) {
+      callback();
+    }
+  }
+
+  function startRoundTimer(delayMs) {
+    if (isViewportBlocked || !roundTimerCallbackRef.current) {
+      return;
+    }
+
+    roundTimerRemainingRef.current = delayMs;
+    roundTimerStartedAtRef.current = Date.now();
+    advanceTimerRef.current = window.setTimeout(runRoundTimerCallback, delayMs);
+  }
+
+  function scheduleRoundTimer(callback, delayMs) {
+    clearRoundTimer();
+    roundTimerCallbackRef.current = callback;
+    startRoundTimer(delayMs);
+  }
+
+  function pauseRoundTimer() {
+    if (!advanceTimerRef.current) {
+      return;
+    }
+
+    const elapsedMs = Date.now() - roundTimerStartedAtRef.current;
+    roundTimerRemainingRef.current = Math.max(
+      0,
+      roundTimerRemainingRef.current - elapsedMs,
+    );
+    clearRoundTimer(false);
+  }
+
+  function resumeRoundTimer() {
+    if (!roundTimerCallbackRef.current || advanceTimerRef.current) {
+      return;
+    }
+
+    startRoundTimer(roundTimerRemainingRef.current);
+  }
+
   function queueAdvance(message, callback) {
     clearRoundTimer();
     setStatusText(message);
-    advanceTimerRef.current = window.setTimeout(() => {
+    scheduleRoundTimer(() => {
       startTransition(() => {
         callback();
         setStatusText("");
       });
     }, 900);
+  }
+
+  function startFinaleTimer(delayMs) {
+    if (isViewportBlocked || screen !== "stage3" || finalStep !== "waiting") {
+      return;
+    }
+
+    finaleTimerRemainingRef.current = delayMs;
+    finaleTimerStartedAtRef.current = Date.now();
+    finaleTimerRef.current = window.setTimeout(() => {
+      clearFinaleTimer();
+      setFinalStep("ready");
+    }, delayMs);
+  }
+
+  function pauseFinaleTimer() {
+    if (!finaleTimerRef.current) {
+      return;
+    }
+
+    const elapsedMs = Date.now() - finaleTimerStartedAtRef.current;
+    finaleTimerRemainingRef.current = Math.max(
+      0,
+      finaleTimerRemainingRef.current - elapsedMs,
+    );
+    clearFinaleTimer(false);
+  }
+
+  function resumeFinaleTimer() {
+    if (
+      finaleTimerRef.current ||
+      screen !== "stage3" ||
+      finalStep !== "waiting" ||
+      finaleTimerRemainingRef.current <= 0
+    ) {
+      return;
+    }
+
+    startFinaleTimer(finaleTimerRemainingRef.current);
   }
 
   async function enterFullscreen() {
@@ -540,7 +644,7 @@ function App() {
       }
 
       if (screen === "stage1") {
-        queueAdvance("Boa! Vamos para a proxima.", () => {
+        queueAdvance("Boa! Vamos para a próxima.", () => {
           setScreen("stage2-guess");
           resetRound();
         });
@@ -562,7 +666,7 @@ function App() {
 
     clearRoundTimer();
     setStatusText("Quase... tente novamente.");
-    advanceTimerRef.current = window.setTimeout(() => {
+    scheduleRoundTimer(() => {
       setStatusText("");
       setModal("retry-round");
     }, 600);
@@ -612,7 +716,7 @@ function App() {
 
   useEffect(() => {
     function handleKeyDown(event) {
-      // Se houver um modal aberto ou o jogo não estiver ativo, ignorar teclado físico
+      // Se houver um modal aberto ou o jogo não estiver ativo, ignorar teclado físico.
       if (modal || !hangmanActive || !/^[a-z]$/i.test(event.key)) {
         return;
       }
@@ -647,12 +751,10 @@ function App() {
     }
 
     clearFinaleTimer();
-    finaleTimerRef.current = window.setTimeout(() => {
-      setFinalStep("ready");
-    }, 10000);
+    startFinaleTimer(10000);
 
     return () => clearFinaleTimer();
-  }, [finalStep, screen]);
+  }, [finalStep, isViewportBlocked, screen]);
 
   useEffect(() => {
     if (screen !== "stage3" || !confettiCanvasRef.current) {
@@ -681,6 +783,49 @@ function App() {
   }, [screen]);
 
   useEffect(() => {
+    if (modal !== "wrong-answer") {
+      setWrongAnswerCountdown(7);
+      return;
+    }
+
+    if (wrongAnswerCountdown <= 0) {
+      setModal(null);
+      return;
+    }
+
+    if (isViewportBlocked) {
+      return;
+    }
+
+    const countdownInterval = window.setInterval(() => {
+      setWrongAnswerCountdown((currentCountdown) => {
+        if (currentCountdown <= 1) {
+          window.clearInterval(countdownInterval);
+          setModal(null);
+          return 0;
+        }
+
+        return currentCountdown - 1;
+      });
+    }, 1000);
+
+    return () => {
+      window.clearInterval(countdownInterval);
+    };
+  }, [isViewportBlocked, modal, wrongAnswerCountdown]);
+
+  useEffect(() => {
+    if (isViewportBlocked) {
+      pauseRoundTimer();
+      pauseFinaleTimer();
+      return;
+    }
+
+    resumeRoundTimer();
+    resumeFinaleTimer();
+  }, [isViewportBlocked]);
+
+  useEffect(() => {
     return () => {
       clearRoundTimer();
       clearFinaleTimer();
@@ -699,22 +844,35 @@ function App() {
   }, []);
 
   function handleProposalNo() {
-    setModal("confirm-no");
+    const nextNoCount = noCount + 1;
+
+    setNoCount(nextNoCount);
+
+    if (nextNoCount >= 3) {
+      finishGame();
+      return;
+    }
+
+    setModal(nextNoCount === 1 ? "confirm-no-first" : "confirm-no-second");
+  }
+
+  function finishGame() {
+    clearFinaleTimer();
+    stopAllAudio();
+    setModal(null);
+    setScreen("ending");
+    finalizarGravacaoComDelay(ENDING_RECORDING_DELAY_MS);
   }
 
   function confirmProposalNo() {
     setModal(null);
 
-    if (noCount === 0) {
-      setNoCount(1);
+    if (noCount === 1) {
       setModal("wrong-answer");
       return;
     }
 
-    clearFinaleTimer();
-    stopAllAudio();
-    setScreen("ending");
-    finalizarGravacaoComDelay(ENDING_RECORDING_DELAY_MS);
+    finishGame();
   }
 
   function acceptProposal() {
@@ -808,7 +966,7 @@ function App() {
                 type="button"
                 className="intro-logo-button"
                 onClick={prepararCamera}
-                aria-label="Preparar camera">
+                aria-label="Preparar câmera">
                 <img
                   className="intro-logo"
                   src={logoJogoForca}
@@ -888,7 +1046,7 @@ function App() {
                         <h1>
                           {finalStep === "ready"
                             ? "É OFICIAL?"
-                            : "Estou nervoso, mas espera ai que tem mais..."}
+                            : "Estou nervoso, mas espera aí que tem mais..."}
                         </h1>
                       )}
                     </div>
@@ -999,11 +1157,13 @@ function App() {
 
       <GameModal
         modalType={modal}
+        wrongAnswerCountdown={wrongAnswerCountdown}
         onRetryRound={() => {
           setModal(null);
           resetRound();
         }}
         onConfirmNo={confirmProposalNo}
+        onWrongAnswerContinue={() => setModal(null)}
         onClose={() => setModal(null)}
       />
 
