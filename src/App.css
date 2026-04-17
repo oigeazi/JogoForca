@@ -69,6 +69,11 @@
   text-align: center;
 }
 
+.ending-screen {
+  flex: 1;
+  min-height: 0;
+}
+
 .gate-screen h1,
 .intro-screen h1,
 .ending-screen h1,
@@ -405,8 +410,9 @@
 }
 
 .finale-screen--centered {
-  grid-template-rows: 1fr;
+  display: flex;
   align-items: center;
+  justify-content: center;
 }
 
 .finale-screen--official {
@@ -427,7 +433,10 @@
 }
 
 .finale-screen--centered .finale-copy {
+  flex: 1;
   min-height: 100%;
+  width: 100%;
+  max-width: 44rem;
   justify-content: center;
 }
 

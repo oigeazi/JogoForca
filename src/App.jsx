@@ -242,7 +242,8 @@ function App() {
 
   useEffect(() => {
     function handleKeyDown(event) {
-      if (!/^[a-z]$/i.test(event.key)) {
+      // Se houver um modal aberto ou o jogo não estiver ativo, ignorar teclado físico
+      if (modal || !hangmanActive || !/^[a-z]$/i.test(event.key)) {
         return;
       }
 
@@ -252,7 +253,7 @@ function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [modal, hangmanActive, handleKeyGuess]); // Adicionadas dependências para segurança
 
   useEffect(() => {
     if (screen !== "stage3") {
@@ -336,7 +337,10 @@ function App() {
   }
 
   function acceptProposal() {
+    if (screen === "stage3") return; // Evita cliques duplos
+
     clearFinaleTimer();
+    clearRoundTimer();
     setModal(null);
     setScreen("stage3");
     setFinalStep("waiting");
@@ -434,9 +438,6 @@ function App() {
             <div className="ending-screen">
               <span className="ending-tag">Fim do jogo</span>
               <h1>Devolva o celular ao dono e finja que nada aconteceu.</h1>
-              <button className="primary-button" onClick={handleStartGame}>
-                Recomecar
-              </button>
             </div>
           ) : (
             <>
@@ -556,12 +557,14 @@ function App() {
                       <div className="proposal-actions">
                         <button
                           className="primary-button"
-                          onClick={acceptProposal}>
+                          onClick={acceptProposal}
+                          aria-label="Aceitar pedido de namoro">
                           SIM
                         </button>
                         <button
                           className="secondary-button"
-                          onClick={handleProposalNo}>
+                          onClick={handleProposalNo}
+                          aria-label="Recusar pedido de namoro">
                           NÃO
                         </button>
                       </div>
