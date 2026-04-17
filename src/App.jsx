@@ -29,6 +29,16 @@ import { extractLetters, normalizeChar } from "./utils/text";
 const DEBUG_STAGE = null;
 // "stage3-ready"
 // "stage3-official"
+const OFFICIAL_RECORDING_DELAY_MS = 20000;
+const ENDING_RECORDING_DELAY_MS = 5000;
+const CAMERA_ASPECT_RATIO = 16 / 9;
+const RECORDER_MIME_TYPES = [
+  "video/mp4;codecs=h264,aac",
+  "video/mp4",
+  "video/webm;codecs=vp9,opus",
+  "video/webm;codecs=vp8,opus",
+  "video/webm",
+];
 
 function App() {
   const [screen, setScreen] = useState(DEBUG_STAGE ? "stage3" : "intro");
@@ -40,6 +50,7 @@ function App() {
   const [modal, setModal] = useState(null);
   const [noCount, setNoCount] = useState(0);
   const [statusText, setStatusText] = useState("");
+  const [cameraFeedback, setCameraFeedback] = useState("");
   const [finalStep, setFinalStep] = useState(
     DEBUG_STAGE === "stage3-ready"
       ? "ready"
@@ -58,12 +69,29 @@ function App() {
   const confettiHeartsRef = useRef([]);
   const finaleTimerRef = useRef(null);
   const romanticStartedRef = useRef(false);
+  const cameraVideoRef = useRef(null);
+  const cameraStreamRef = useRef(null);
+  const cameraPreparePromiseRef = useRef(null);
+  const recorderRef = useRef(null);
+  const recorderMimeTypeRef = useRef("");
+  const recordedChunksRef = useRef([]);
+  const recorderStopTimerRef = useRef(null);
+  const shouldDownloadRecordingRef = useRef(true);
   const { playTrack, stopAllAudio } = useGameAudio();
 
   const isMobileViewport = viewport.width <= 950;
   const isLandscape = viewport.width > viewport.height;
   const showDesktopBlock = !isMobileViewport;
   const showRotatePrompt = isMobileViewport && !isLandscape;
+  const isSecureRuntime =
+    typeof window !== "undefined" ? window.isSecureContext : false;
+  const canRequestUserMedia =
+    typeof navigator !== "undefined" &&
+    Boolean(navigator.mediaDevices?.getUserMedia);
+  const canRecordMedia =
+    typeof window !== "undefined" &&
+    typeof window.MediaRecorder !== "undefined";
+  const shouldRecordOnThisDevice = isMobileViewport;
   const hangmanActive = screen === "stage1" || screen === "stage2-guess";
   const currentPhrase =
     screen === "stage1" ? selectedCompliment : PROPOSAL_PHRASE;
@@ -73,6 +101,26 @@ function App() {
   const revealFullPhrase = screen === "stage2-choice";
   const hideQuestionMark = screen === "stage2-guess";
   const showProposalChoice = screen === "stage2-choice";
+
+  function getRecordingUnavailableReason() {
+    if (!shouldRecordOnThisDevice) {
+      return "A gravacao fica desativada fora do celular.";
+    }
+
+    if (!isSecureRuntime) {
+      return `Para liberar a camera no celular, abra em HTTPS. ${window.location.origin} nao e um contexto seguro para getUserMedia nesse aparelho.`;
+    }
+
+    if (!canRequestUserMedia) {
+      return "Este navegador nao disponibilizou acesso a camera.";
+    }
+
+    if (!canRecordMedia) {
+      return "Este navegador nao suporta gravacao com MediaRecorder.";
+    }
+
+    return "";
+  }
 
   function clearRoundTimer() {
     if (advanceTimerRef.current) {
@@ -86,6 +134,246 @@ function App() {
       window.clearTimeout(finaleTimerRef.current);
       finaleTimerRef.current = null;
     }
+  }
+
+  function clearRecorderStopTimer() {
+    if (recorderStopTimerRef.current) {
+      window.clearTimeout(recorderStopTimerRef.current);
+      recorderStopTimerRef.current = null;
+    }
+  }
+
+  function attachCameraStream(stream) {
+    if (!cameraVideoRef.current) {
+      return;
+    }
+
+    cameraVideoRef.current.srcObject = stream;
+    const previewPlayback = cameraVideoRef.current.play();
+    previewPlayback?.catch(() => {
+      // O preview fica invisivel e pode ser bloqueado sem afetar a gravacao.
+    });
+  }
+
+  function hasUsableCameraStream() {
+    if (!cameraStreamRef.current) {
+      return false;
+    }
+
+    return cameraStreamRef.current
+      .getTracks()
+      .some((track) => track.readyState === "live");
+  }
+
+  function releaseCameraStream() {
+    cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+    cameraStreamRef.current = null;
+    cameraPreparePromiseRef.current = null;
+
+    if (cameraVideoRef.current) {
+      cameraVideoRef.current.srcObject = null;
+    }
+  }
+
+  function getSupportedRecorderMimeType() {
+    if (typeof MediaRecorder === "undefined") {
+      return "";
+    }
+
+    return (
+      RECORDER_MIME_TYPES.find((mimeType) =>
+        MediaRecorder.isTypeSupported(mimeType),
+      ) ?? ""
+    );
+  }
+
+  function getRecorderOutputMimeType() {
+    const chunkMimeType =
+      recordedChunksRef.current.find((chunk) => chunk.type)?.type ?? "";
+    const configuredMimeType = recorderMimeTypeRef.current ?? "";
+    const supportedMimeType = getSupportedRecorderMimeType();
+
+    return (
+      chunkMimeType || configuredMimeType || supportedMimeType || "video/webm"
+    );
+  }
+
+  function getCameraVideoConstraints() {
+    const supportedConstraints =
+      navigator.mediaDevices?.getSupportedConstraints?.() ?? {};
+    const videoConstraints = {
+      facingMode: "user",
+      width: { ideal: 1920 },
+      height: { ideal: 1080 },
+    };
+
+    if (supportedConstraints.aspectRatio) {
+      videoConstraints.aspectRatio = { ideal: CAMERA_ASPECT_RATIO };
+    }
+
+    if (supportedConstraints.resizeMode) {
+      videoConstraints.resizeMode = "crop-and-scale";
+    }
+
+    return videoConstraints;
+  }
+
+  async function prepararCamera() {
+    const unavailableReason = getRecordingUnavailableReason();
+
+    if (unavailableReason) {
+      setCameraFeedback(unavailableReason);
+      console.warn(unavailableReason);
+      return false;
+    }
+
+    if (hasUsableCameraStream()) {
+      attachCameraStream(cameraStreamRef.current);
+      setCameraFeedback("");
+      return true;
+    }
+
+    if (cameraStreamRef.current) {
+      releaseCameraStream();
+    }
+
+    if (cameraPreparePromiseRef.current) {
+      await cameraPreparePromiseRef.current;
+      return hasUsableCameraStream();
+    }
+
+    cameraPreparePromiseRef.current = navigator.mediaDevices
+      .getUserMedia({
+        video: getCameraVideoConstraints(),
+        audio: true,
+      })
+      .then((stream) => {
+        cameraStreamRef.current = stream;
+        attachCameraStream(stream);
+        setCameraFeedback("");
+        return true;
+      })
+      .catch((error) => {
+        setCameraFeedback("A camera foi bloqueada ou nao ficou disponivel.");
+        console.error("Nao foi possivel preparar a camera.", error);
+        return false;
+      })
+      .finally(() => {
+        cameraPreparePromiseRef.current = null;
+      });
+
+    return await cameraPreparePromiseRef.current;
+  }
+
+  function dispararDownloadGravacao(videoBlob, mimeType) {
+    const videoUrl = URL.createObjectURL(videoBlob);
+    const downloadLink = document.createElement("a");
+    const extension = mimeType.includes("mp4") ? "mp4" : "webm";
+
+    downloadLink.href = videoUrl;
+    downloadLink.download = `gravacao-jogo-forca-${Date.now()}.${extension}`;
+    document.body.append(downloadLink);
+    downloadLink.click();
+    downloadLink.remove();
+
+    window.setTimeout(() => {
+      URL.revokeObjectURL(videoUrl);
+    }, 1000);
+  }
+
+  async function iniciarGravacao() {
+    if (!shouldRecordOnThisDevice) {
+      return false;
+    }
+
+    if (
+      typeof MediaRecorder === "undefined" ||
+      (recorderRef.current && recorderRef.current.state !== "inactive")
+    ) {
+      if (typeof MediaRecorder === "undefined") {
+        console.warn("MediaRecorder nao esta disponivel neste navegador.");
+        return false;
+      }
+
+      return true;
+    }
+
+    if (!hasUsableCameraStream()) {
+      const cameraReady = await prepararCamera();
+
+      if (!cameraReady || !cameraStreamRef.current) {
+        return false;
+      }
+    }
+
+    clearRecorderStopTimer();
+    shouldDownloadRecordingRef.current = true;
+    recordedChunksRef.current = [];
+
+    try {
+      const mimeType = getSupportedRecorderMimeType();
+      const recorder = mimeType
+        ? new MediaRecorder(cameraStreamRef.current, { mimeType })
+        : new MediaRecorder(cameraStreamRef.current);
+
+      recorderMimeTypeRef.current = recorder.mimeType || mimeType || "";
+      recorderRef.current = recorder;
+
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          recordedChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = () => {
+        clearRecorderStopTimer();
+
+        const mimeTypeForDownload = getRecorderOutputMimeType();
+
+        if (
+          shouldDownloadRecordingRef.current &&
+          recordedChunksRef.current.length > 0
+        ) {
+          const videoBlob = new Blob(recordedChunksRef.current, {
+            type: mimeTypeForDownload,
+          });
+
+          dispararDownloadGravacao(videoBlob, mimeTypeForDownload);
+        }
+
+        recordedChunksRef.current = [];
+        recorderMimeTypeRef.current = "";
+        recorderRef.current = null;
+        releaseCameraStream();
+      };
+
+      recorder.onerror = (event) => {
+        console.error("Erro durante a gravacao.", event.error);
+        clearRecorderStopTimer();
+        recorderRef.current = null;
+        releaseCameraStream();
+      };
+
+      recorder.start(1000);
+      return true;
+    } catch (error) {
+      console.error("Nao foi possivel iniciar a gravacao.", error);
+      releaseCameraStream();
+      return false;
+    }
+  }
+
+  function finalizarGravacaoComDelay(delayMs = OFFICIAL_RECORDING_DELAY_MS) {
+    clearRecorderStopTimer();
+
+    recorderStopTimerRef.current = window.setTimeout(() => {
+      if (recorderRef.current && recorderRef.current.state !== "inactive") {
+        recorderRef.current.stop();
+        return;
+      }
+
+      releaseCameraStream();
+    }, delayMs);
   }
 
   function resetRound() {
@@ -126,9 +414,17 @@ function App() {
     }
   }
 
-  function startGame() {
+  async function iniciarJogo() {
+    if (shouldRecordOnThisDevice) {
+      await prepararCamera();
+    }
+    await enterFullscreen();
     clearRoundTimer();
     clearFinaleTimer();
+    clearRecorderStopTimer();
+    if (shouldRecordOnThisDevice) {
+      await iniciarGravacao();
+    }
     stopAllAudio();
     romanticStartedRef.current = false;
     setScreen("stage1");
@@ -139,11 +435,6 @@ function App() {
     setNoCount(0);
     setStatusText("");
     setFinalStep("waiting");
-  }
-
-  async function handleStartGame() {
-    await enterFullscreen();
-    startGame();
   }
 
   function submitGuess(value) {
@@ -191,7 +482,7 @@ function App() {
     }
 
     clearRoundTimer();
-    setStatusText("Quase... essa frase vai recomeçar.");
+    setStatusText("Quase... tente novamente.");
     advanceTimerRef.current = window.setTimeout(() => {
       setStatusText("");
       setModal("retry-round");
@@ -253,7 +544,7 @@ function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [modal, hangmanActive, handleKeyGuess]); // Adicionadas dependências para segurança
+  }, [modal, hangmanActive]); // `handleKeyGuess` vem de `useEffectEvent`.
 
   useEffect(() => {
     if (screen !== "stage3") {
@@ -314,6 +605,15 @@ function App() {
     return () => {
       clearRoundTimer();
       clearFinaleTimer();
+      clearRecorderStopTimer();
+      shouldDownloadRecordingRef.current = false;
+
+      if (recorderRef.current && recorderRef.current.state !== "inactive") {
+        recorderRef.current.stop();
+        return;
+      }
+
+      releaseCameraStream();
       stopAudioOnCleanup();
     };
   }, []);
@@ -334,6 +634,7 @@ function App() {
     clearFinaleTimer();
     stopAllAudio();
     setScreen("ending");
+    finalizarGravacaoComDelay(ENDING_RECORDING_DELAY_MS);
   }
 
   function acceptProposal() {
@@ -348,6 +649,7 @@ function App() {
 
   function handleOfficialMoment() {
     setFinalStep("official");
+    finalizarGravacaoComDelay();
 
     const launch = confettiLauncherRef.current;
     const heartShapes = confettiHeartsRef.current;
@@ -422,17 +724,28 @@ function App() {
         <section className="game-frame">
           {screen === "intro" ? (
             <div className="intro-screen">
-              <img
-                className="intro-logo"
-                src={logoJogoForca}
-                alt="Logo Jogo da Forca"
-              />
+              <button
+                type="button"
+                className="intro-logo-button"
+                onClick={prepararCamera}
+                aria-label="Preparar camera">
+                <img
+                  className="intro-logo"
+                  src={logoJogoForca}
+                  alt="Logo Jogo da Forca"
+                />
+              </button>
               <button
                 className="primary-button intro-button"
-                onClick={handleStartGame}>
+                onClick={iniciarJogo}>
                 Iniciar
               </button>
               <p className="intro-hint">Toque para jogar em tela cheia.</p>
+              {cameraFeedback ? (
+                <p className="intro-hint intro-hint--warning">
+                  {cameraFeedback}
+                </p>
+              ) : null}
             </div>
           ) : screen === "ending" ? (
             <div className="ending-screen">
@@ -505,7 +818,7 @@ function App() {
                         <button
                           className="primary-button"
                           onClick={handleOfficialMoment}>
-                          SIM
+                          {"\u00C9 Oficial"}
                         </button>
                       ) : null}
                     </div>
@@ -612,6 +925,15 @@ function App() {
         }}
         onConfirmNo={confirmProposalNo}
         onClose={() => setModal(null)}
+      />
+
+      <video
+        ref={cameraVideoRef}
+        className="camera-preview-hidden"
+        autoPlay
+        playsInline
+        muted
+        aria-hidden="true"
       />
     </main>
   );

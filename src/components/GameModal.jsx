@@ -35,9 +35,9 @@ function GameModal({ modalType, onRetryRound, onConfirmNo, onClose }) {
         {modalType === "wrong-answer" && (
           <>
             <p className="gate-eyebrow">Ops...</p>
-            <h3>Resposta errada, tente novamente.</h3>
+            <h3>Resposta errada 😡.</h3>
             <button className="primary-button" onClick={onClose}>
-              Voltar para a pergunta
+              Quero mais uma chance
             </button>
           </>
         )}
