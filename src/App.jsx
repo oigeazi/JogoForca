@@ -13,13 +13,19 @@ import HangmanDrawing from "./components/HangmanDrawing";
 import PhraseBoard from "./components/PhraseBoard";
 import {
   ALPHABET,
+  BACKGROUND_TRACK,
   COMPLIMENT_OPTIONS,
+  CONFETTI_SOUND,
+  ERROR_SOUND,
+  FAIL_SOUND,
   HEARTS,
+  HARP_UP_SOUND,
   MAX_ERRORS,
   OFFICIAL_TRACK,
   POLAROIDS,
   PROPOSAL_PHRASE,
   ROMANTIC_TRACK,
+  SPARKLE_SOUND,
 } from "./content/gameContent";
 import logoJogoForca from "./assets/Logo Jogo Forca.png";
 import { useGameAudio } from "./hooks/useGameAudio";
@@ -86,7 +92,8 @@ function App() {
   const roundTimerStartedAtRef = useRef(0);
   const finaleTimerRemainingRef = useRef(10000);
   const finaleTimerStartedAtRef = useRef(0);
-  const { getRecordingAudioStream, playTrack, stopAllAudio } = useGameAudio();
+  const { getRecordingAudioStream, playEffect, playTrack, stopAllAudio } =
+    useGameAudio();
 
   const isMobileViewport = viewport.width <= 950;
   const isLandscape = viewport.width > viewport.height;
@@ -618,6 +625,10 @@ function App() {
     setNoCount(0);
     setStatusText("");
     setFinalStep("waiting");
+    void playTrack(BACKGROUND_TRACK, 0.22, {
+      loop: true,
+      fadeMs: 500,
+    });
   }
 
   function submitGuess(value) {
@@ -632,6 +643,7 @@ function App() {
     }
 
     if (phraseLetters.includes(letter)) {
+      void playEffect(SPARKLE_SOUND, 0.2);
       const nextGuesses = [...guessedLetters, letter];
       setGuessedLetters(nextGuesses);
 
@@ -644,6 +656,7 @@ function App() {
       }
 
       if (screen === "stage1") {
+        void playEffect(HARP_UP_SOUND, 0.24);
         queueAdvance("Boa! Vamos para a próxima.", () => {
           setScreen("stage2-guess");
           resetRound();
@@ -658,6 +671,7 @@ function App() {
     }
 
     const nextWrongLetters = [...wrongLetters, letter];
+    void playEffect(ERROR_SOUND, 0.16);
     setWrongLetters(nextWrongLetters);
 
     if (nextWrongLetters.length < MAX_ERRORS) {
@@ -665,6 +679,7 @@ function App() {
     }
 
     clearRoundTimer();
+    void playEffect(FAIL_SOUND, 0.22);
     setStatusText("Quase... tente novamente.");
     scheduleRoundTimer(() => {
       setStatusText("");
@@ -677,11 +692,17 @@ function App() {
   });
 
   const playRomanticTrack = useEffectEvent(() => {
-    void playTrack(ROMANTIC_TRACK, "romantic", 0.55, { loop: true });
+    void playTrack(ROMANTIC_TRACK, 0.3, {
+      loop: true,
+      fadeMs: 900,
+    });
   });
 
   const playOfficialTrack = useEffectEvent(() => {
-    void playTrack(OFFICIAL_TRACK, "official", 1, { loop: false });
+    void playTrack(OFFICIAL_TRACK, 0.32, {
+      loop: false,
+      fadeMs: 900,
+    });
   });
 
   const stopAudioOnCleanup = useEffectEvent(() => {
@@ -888,6 +909,7 @@ function App() {
   function handleOfficialMoment() {
     setFinalStep("official");
     finalizarGravacaoComDelay();
+    void playEffect(CONFETTI_SOUND, 0.32);
 
     const launch = confettiLauncherRef.current;
     const heartShapes = confettiHeartsRef.current;

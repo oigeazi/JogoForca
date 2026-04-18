@@ -1,179 +1,239 @@
-import { useEffect, useEffectEvent, useRef } from 'react'
+import { useEffect, useEffectEvent, useRef } from "react";
 
 export function useGameAudio() {
-  const htmlAudioRef = useRef(null)
-  const audioContextRef = useRef(null)
-  const masterGainRef = useRef(null)
-  const recordingDestinationRef = useRef(null)
-  const synthTimerRef = useRef(null)
+  const backgroundAudioRef = useRef(null);
+  const audioContextRef = useRef(null);
+  const masterGainRef = useRef(null);
+  const recordingDestinationRef = useRef(null);
+  const activeAudioRefs = useRef(new Set());
 
   function ensureAudioGraph() {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
 
     if (!AudioContextClass) {
-      return null
+      return null;
     }
 
     if (!audioContextRef.current) {
-      const context = new AudioContextClass()
-      const masterGain = context.createGain()
-      const recordingDestination = context.createMediaStreamDestination()
+      const context = new AudioContextClass();
+      const masterGain = context.createGain();
+      const recordingDestination = context.createMediaStreamDestination();
 
-      masterGain.connect(context.destination)
-      masterGain.connect(recordingDestination)
+      masterGain.connect(context.destination);
+      masterGain.connect(recordingDestination);
 
-      audioContextRef.current = context
-      masterGainRef.current = masterGain
-      recordingDestinationRef.current = recordingDestination
+      audioContextRef.current = context;
+      masterGainRef.current = masterGain;
+      recordingDestinationRef.current = recordingDestination;
     }
 
     return {
       context: audioContextRef.current,
       masterGain: masterGainRef.current,
       recordingDestination: recordingDestinationRef.current,
+    };
+  }
+
+  function clearFadeTimer(audioState) {
+    if (audioState?.fadeTimer) {
+      window.clearInterval(audioState.fadeTimer);
+      audioState.fadeTimer = null;
     }
   }
 
-  function stopSynth() {
-    if (synthTimerRef.current) {
-      window.clearInterval(synthTimerRef.current)
-      synthTimerRef.current = null
+  function cleanupAudio(audioState) {
+    if (!audioState || audioState.cleanedUp) {
+      return;
+    }
+
+    audioState.cleanedUp = true;
+    clearFadeTimer(audioState);
+    audioState.audio.pause();
+    audioState.audio.removeAttribute("src");
+    audioState.audio.load();
+    audioState.sourceNode?.disconnect();
+    audioState.gainNode?.disconnect();
+    activeAudioRefs.current.delete(audioState);
+
+    if (backgroundAudioRef.current === audioState) {
+      backgroundAudioRef.current = null;
     }
   }
 
   function stopAllAudio() {
-    stopSynth()
-
-    if (htmlAudioRef.current) {
-      htmlAudioRef.current.pause()
-      htmlAudioRef.current.src = ''
-      htmlAudioRef.current = null
+    for (const audioState of activeAudioRefs.current) {
+      cleanupAudio(audioState);
     }
+
+    activeAudioRefs.current.clear();
+    backgroundAudioRef.current = null;
   }
 
-  function startSynthTrack(kind, loop = true) {
-    const audioGraph = ensureAudioGraph()
+  function createAudioState(src, volume, { loop = false } = {}) {
+    const audioGraph = ensureAudioGraph();
+    const audio = new Audio(src);
+    audio.loop = loop;
+    audio.volume = audioGraph ? 1 : volume;
+    audio.preload = "auto";
+    audio.crossOrigin = "anonymous";
 
-    if (!audioGraph) {
-      return
+    const audioState = {
+      audio,
+      gainNode: null,
+      sourceNode: null,
+      fadeTimer: null,
+      cleanedUp: false,
+    };
+
+    if (audioGraph) {
+      const gainNode = audioGraph.context.createGain();
+      gainNode.gain.value = volume;
+
+      const sourceNode = audioGraph.context.createMediaElementSource(audio);
+      sourceNode.connect(gainNode);
+      gainNode.connect(audioGraph.masterGain);
+
+      audioState.gainNode = gainNode;
+      audioState.sourceNode = sourceNode;
     }
 
-    stopSynth()
-
-    const { context, masterGain } = audioGraph
-    const config =
-      kind === 'official'
-        ? {
-            notes: [392, 523.25, 659.25, 783.99, 659.25, 523.25, 880],
-            duration: 0.24,
-            gap: 0.04,
-            waveform: 'triangle',
-            volume: 0.11,
-          }
-        : {
-            notes: [261.63, 329.63, 392, 440, 392, 329.63, 293.66],
-            duration: 0.52,
-            gap: 0.08,
-            waveform: 'sine',
-            volume: 0.045,
-          }
-
-    let noteIndex = 0
-
-    const playNote = () => {
-      if (context.state === 'suspended') {
-        context.resume()
+    audio.addEventListener("ended", () => {
+      if (!audio.loop) {
+        cleanupAudio(audioState);
       }
+    });
 
-      const oscillator = context.createOscillator()
-      const gain = context.createGain()
-      const now = context.currentTime
-      const frequency = config.notes[noteIndex % config.notes.length]
-
-      oscillator.type = config.waveform
-      oscillator.frequency.setValueAtTime(frequency, now)
-      gain.gain.setValueAtTime(0.0001, now)
-      gain.gain.exponentialRampToValueAtTime(config.volume, now + 0.03)
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + config.duration)
-
-      oscillator.connect(gain)
-      gain.connect(masterGain)
-      oscillator.start(now)
-      oscillator.stop(now + config.duration + 0.03)
-
-      noteIndex += 1
-    }
-
-    playNote()
-
-    if (loop) {
-      synthTimerRef.current = window.setInterval(
-        playNote,
-        (config.duration + config.gap) * 1000,
-      )
-    }
+    activeAudioRefs.current.add(audioState);
+    return { audioGraph, audioState };
   }
 
-  async function playTrack(src, kind, volume, options = {}) {
-    const { loop = true } = options
-    stopAllAudio()
-
-    const audioGraph = ensureAudioGraph()
-    const audio = new Audio(src)
-    audio.loop = loop
-    audio.volume = volume
-    audio.preload = 'auto'
-    audio.crossOrigin = 'anonymous'
-    htmlAudioRef.current = audio
-
-    const fallback = () => {
-      if (htmlAudioRef.current === audio) {
-        htmlAudioRef.current = null
-        startSynthTrack(kind, loop)
-      }
+  async function fadeAudio(audioState, targetVolume, durationMs = 600) {
+    if (!audioState || audioState.cleanedUp) {
+      return;
     }
 
-    audio.addEventListener('error', fallback, { once: true })
+    clearFadeTimer(audioState);
 
-    try {
-      if (audioGraph) {
-        if (audioGraph.context.state === 'suspended') {
-          await audioGraph.context.resume()
+    const steps = Math.max(1, Math.round(durationMs / 50));
+    const startVolume = audioState.gainNode
+      ? audioState.gainNode.gain.value
+      : audioState.audio.volume;
+    const volumeDelta = targetVolume - startVolume;
+
+    if (durationMs <= 0 || volumeDelta === 0) {
+      if (audioState.gainNode) {
+        audioState.gainNode.gain.value = targetVolume;
+      } else {
+        audioState.audio.volume = targetVolume;
+      }
+
+      return;
+    }
+
+    let currentStep = 0;
+
+    await new Promise((resolve) => {
+      audioState.fadeTimer = window.setInterval(() => {
+        currentStep += 1;
+        const nextVolume = startVolume + (volumeDelta * currentStep) / steps;
+        const safeVolume = Math.max(0, nextVolume);
+
+        if (audioState.gainNode) {
+          audioState.gainNode.gain.value = safeVolume;
+        } else {
+          audioState.audio.volume = safeVolume;
         }
 
-        const source = audioGraph.context.createMediaElementSource(audio)
-        source.connect(audioGraph.masterGain)
+        if (currentStep >= steps) {
+          clearFadeTimer(audioState);
+          resolve();
+        }
+      }, durationMs / steps);
+    });
+  }
+
+  async function playTrack(src, volume, options = {}) {
+    const { loop = true, fadeMs = 650 } = options;
+
+    const previousTrack = backgroundAudioRef.current;
+    const { audioGraph, audioState } = createAudioState(src, volume, { loop });
+    backgroundAudioRef.current = audioState;
+
+    if (audioState.gainNode) {
+      audioState.gainNode.gain.value = 0;
+    } else {
+      audioState.audio.volume = 0;
+    }
+
+    const fallback = () => {
+      if (backgroundAudioRef.current === audioState) {
+        cleanupAudio(audioState);
+      }
+    };
+
+    audioState.audio.addEventListener("error", fallback, { once: true });
+
+    try {
+      if (audioGraph?.context.state === "suspended") {
+        await audioGraph.context.resume();
       }
 
-      await audio.play()
+      await audioState.audio.play();
+      await Promise.all([
+        fadeAudio(audioState, volume, fadeMs),
+        previousTrack ? fadeAudio(previousTrack, 0, fadeMs) : Promise.resolve(),
+      ]);
+
+      if (previousTrack) {
+        cleanupAudio(previousTrack);
+      }
     } catch {
-      fallback()
+      fallback();
+    }
+  }
+
+  async function playEffect(src, volume, options = {}) {
+    const { loop = false } = options;
+
+    const { audioGraph, audioState } = createAudioState(src, volume, { loop });
+
+    try {
+      if (audioGraph?.context.state === "suspended") {
+        await audioGraph.context.resume();
+      }
+
+      await audioState.audio.play();
+      return audioState;
+    } catch {
+      cleanupAudio(audioState);
+      return null;
     }
   }
 
   function getRecordingAudioStream() {
-    const audioGraph = ensureAudioGraph()
+    const audioGraph = ensureAudioGraph();
 
-    return audioGraph?.recordingDestination?.stream ?? null
+    return audioGraph?.recordingDestination?.stream ?? null;
   }
 
   const stopAudioOnUnmount = useEffectEvent(() => {
-    stopAllAudio()
-  })
+    stopAllAudio();
+  });
 
   useEffect(() => {
     return () => {
-      stopAudioOnUnmount()
+      stopAudioOnUnmount();
 
       if (audioContextRef.current) {
-        audioContextRef.current.close()
+        audioContextRef.current.close();
       }
-    }
-  }, [])
+    };
+  }, []);
 
   return {
     getRecordingAudioStream,
+    playEffect,
     playTrack,
     stopAllAudio,
-  }
+  };
 }
