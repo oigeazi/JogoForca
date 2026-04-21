@@ -59,6 +59,6 @@ export const POLAROIDS = [
   },
   {
     image: polaroid03,
-    label: "Um passeio no shopping",
+    label: "Foi difícil disfarçar a felicidade",
   },
 ];

@@ -39,6 +39,7 @@ const CAMERA_ASPECT_RATIO = 16 / 9;
 const PHASE_SUCCESS_MS = 850;
 const PHASE_TRANSITION_MS = 1300;
 const GAME_STAGE_ZOOM_MS = 760;
+const FINALE_READY_DELAY_MS = 30000;
 const AUTO_COMPLETE_TRIGGER_COUNT = 11;
 const AUTO_COMPLETE_REVEAL_MS = 120;
 const AUTO_COMPLETE_PAUSE_MS = 1000;
@@ -117,7 +118,7 @@ function App() {
   const roundTimerCallbackRef = useRef(null);
   const roundTimerRemainingRef = useRef(0);
   const roundTimerStartedAtRef = useRef(0);
-  const finaleTimerRemainingRef = useRef(10000);
+  const finaleTimerRemainingRef = useRef(FINALE_READY_DELAY_MS);
   const finaleTimerStartedAtRef = useRef(0);
   const { getRecordingAudioStream, playEffect, playTrack, stopAllAudio } =
     useGameAudio();
@@ -191,7 +192,7 @@ function App() {
     }
 
     if (resetState) {
-      finaleTimerRemainingRef.current = 10000;
+      finaleTimerRemainingRef.current = FINALE_READY_DELAY_MS;
       finaleTimerStartedAtRef.current = 0;
     }
   }
@@ -331,7 +332,8 @@ function App() {
     }
 
     const recordingAudioContext = new AudioContextClass();
-    const mixedDestination = recordingAudioContext.createMediaStreamDestination();
+    const mixedDestination =
+      recordingAudioContext.createMediaStreamDestination();
 
     if (recordingAudioContext.state === "suspended") {
       await recordingAudioContext.resume();
@@ -484,7 +486,9 @@ function App() {
     recordedChunksRef.current = [];
 
     try {
-      const recorderStream = await createRecorderStream(cameraStreamRef.current);
+      const recorderStream = await createRecorderStream(
+        cameraStreamRef.current,
+      );
       const mimeType = getSupportedRecorderMimeType();
       const recorder = mimeType
         ? new MediaRecorder(recorderStream, { mimeType })
@@ -555,7 +559,9 @@ function App() {
 
   function animateRevealedIndex(index) {
     setAnimatedRevealIndexes((currentIndexes) =>
-      currentIndexes.includes(index) ? currentIndexes : [...currentIndexes, index],
+      currentIndexes.includes(index)
+        ? currentIndexes
+        : [...currentIndexes, index],
     );
 
     const timerId = window.setTimeout(() => {
@@ -656,7 +662,11 @@ function App() {
     }, delayMs);
   }
 
-  function runGameStageTransition(mode, callback, delayMs = GAME_STAGE_ZOOM_MS) {
+  function runGameStageTransition(
+    mode,
+    callback,
+    delayMs = GAME_STAGE_ZOOM_MS,
+  ) {
     clearGameStageTransitionTimer();
     setGameStageTransition(mode);
 
@@ -705,7 +715,9 @@ function App() {
     hiddenIndexes.forEach((index, hiddenIndex) => {
       const timerId = window.setTimeout(() => {
         setForcedRevealIndexes((currentIndexes) =>
-          currentIndexes.includes(index) ? currentIndexes : [...currentIndexes, index],
+          currentIndexes.includes(index)
+            ? currentIndexes
+            : [...currentIndexes, index],
         );
         animateRevealedIndex(index);
         void playEffect(SPARKLE_SOUND, 0.24);
@@ -980,7 +992,7 @@ function App() {
     }
 
     clearFinaleTimer();
-    startFinaleTimer(10000);
+    startFinaleTimer(FINALE_READY_DELAY_MS);
 
     return () => clearFinaleTimer();
   }, [finalStep, isViewportBlocked, screen]);
@@ -1012,7 +1024,11 @@ function App() {
   }, [screen]);
 
   useEffect(() => {
-    if (modal !== "wrong-answer" || wrongAnswerCountdown <= 0 || isViewportBlocked) {
+    if (
+      modal !== "wrong-answer" ||
+      wrongAnswerCountdown <= 0 ||
+      isViewportBlocked
+    ) {
       return;
     }
 
@@ -1313,11 +1329,8 @@ function App() {
                   <div
                     className={`phrase-panel ${!hangmanActive ? "phrase-panel--solo" : ""} ${showProposalChoice ? "phrase-panel--choice" : ""}`}>
                     {successHighlight && (
-                      <div
-                        className="phase-feedback phase-feedback--success">
-                        <span>
-                          {"Você acertou!"}
-                        </span>
+                      <div className="phase-feedback phase-feedback--success">
+                        <span>{"Você acertou!"}</span>
                       </div>
                     )}
 
