@@ -29,15 +29,19 @@ import {
 } from "./content/gameContent";
 import logoJogoForca from "./assets/Logo Jogo Forca.png";
 import { useGameAudio } from "./hooks/useGameAudio";
-import { getPhaseLabel, getProgress, pickRandomItem } from "./utils/gameState";
+import { getPhaseLabel, getProgress } from "./utils/gameState";
 import { extractLetters, normalizeChar } from "./utils/text";
 
 const DEBUG_STAGE = null;
-// "stage3-ready"
-// "stage3-official"
 const OFFICIAL_RECORDING_DELAY_MS = 20000;
 const ENDING_RECORDING_DELAY_MS = 5000;
 const CAMERA_ASPECT_RATIO = 16 / 9;
+const PHASE_SUCCESS_MS = 850;
+const PHASE_TRANSITION_MS = 1300;
+const GAME_STAGE_ZOOM_MS = 760;
+const AUTO_COMPLETE_TRIGGER_COUNT = 11;
+const AUTO_COMPLETE_REVEAL_MS = 120;
+const AUTO_COMPLETE_PAUSE_MS = 1000;
 const RECORDER_MIME_TYPES = [
   "video/mp4;codecs=h264,aac",
   "video/mp4",
@@ -45,6 +49,16 @@ const RECORDER_MIME_TYPES = [
   "video/webm;codecs=vp8,opus",
   "video/webm",
 ];
+const PROPOSAL_LETTER_INDEXES = [...PROPOSAL_PHRASE].reduce(
+  (indexes, char, index) => {
+    if (normalizeChar(char)) {
+      indexes.push(index);
+    }
+
+    return indexes;
+  },
+  [],
+);
 
 function App() {
   const [screen, setScreen] = useState(DEBUG_STAGE ? "stage3" : "intro");
@@ -58,6 +72,12 @@ function App() {
   const [wrongAnswerCountdown, setWrongAnswerCountdown] = useState(7);
   const [statusText, setStatusText] = useState("");
   const [cameraFeedback, setCameraFeedback] = useState("");
+  const [gameStageTransition, setGameStageTransition] = useState(null);
+  const [transitionState, setTransitionState] = useState(null);
+  const [successHighlight, setSuccessHighlight] = useState(false);
+  const [forcedRevealIndexes, setForcedRevealIndexes] = useState([]);
+  const [animatedRevealIndexes, setAnimatedRevealIndexes] = useState([]);
+  const [isAutoCompletingPhase2, setIsAutoCompletingPhase2] = useState(false);
   const [finalStep, setFinalStep] = useState(
     DEBUG_STAGE === "stage3-ready"
       ? "ready"
@@ -71,10 +91,17 @@ function App() {
   });
 
   const advanceTimerRef = useRef(null);
+  const autoCompleteTimersRef = useRef([]);
   const confettiCanvasRef = useRef(null);
   const confettiLauncherRef = useRef(null);
   const confettiHeartsRef = useRef([]);
   const finaleTimerRef = useRef(null);
+  const highlightTimerRef = useRef(null);
+  const lastComplimentIndexRef = useRef(-1);
+  const officialTrackStartedRef = useRef(false);
+  const gameStageTransitionTimerRef = useRef(null);
+  const phaseTransitionTimerRef = useRef(null);
+  const proposalAutoCompleteStartedRef = useRef(false);
   const romanticStartedRef = useRef(false);
   const cameraVideoRef = useRef(null);
   const cameraStreamRef = useRef(null);
@@ -109,7 +136,8 @@ function App() {
     typeof window !== "undefined" &&
     typeof window.MediaRecorder !== "undefined";
   const shouldRecordOnThisDevice = isMobileViewport;
-  const hangmanActive = screen === "stage1" || screen === "stage2-guess";
+  const hangmanActive =
+    (screen === "stage1" || screen === "stage2-guess") && !transitionState;
   const currentPhrase =
     screen === "stage1" ? selectedCompliment : PROPOSAL_PHRASE;
   const phraseLetters = extractLetters(currentPhrase);
@@ -173,6 +201,48 @@ function App() {
       window.clearTimeout(recorderStopTimerRef.current);
       recorderStopTimerRef.current = null;
     }
+  }
+
+  function clearHighlightTimer() {
+    if (highlightTimerRef.current) {
+      window.clearTimeout(highlightTimerRef.current);
+      highlightTimerRef.current = null;
+    }
+  }
+
+  function clearPhaseTransitionTimer() {
+    if (phaseTransitionTimerRef.current) {
+      window.clearTimeout(phaseTransitionTimerRef.current);
+      phaseTransitionTimerRef.current = null;
+    }
+  }
+
+  function clearGameStageTransitionTimer() {
+    if (gameStageTransitionTimerRef.current) {
+      window.clearTimeout(gameStageTransitionTimerRef.current);
+      gameStageTransitionTimerRef.current = null;
+    }
+  }
+
+  function clearAutoCompleteTimers() {
+    autoCompleteTimersRef.current.forEach((timerId) => {
+      window.clearTimeout(timerId);
+    });
+    autoCompleteTimersRef.current = [];
+  }
+
+  function resetPhaseFlowState() {
+    clearHighlightTimer();
+    clearGameStageTransitionTimer();
+    clearPhaseTransitionTimer();
+    clearAutoCompleteTimers();
+    setGameStageTransition(null);
+    setTransitionState(null);
+    setSuccessHighlight(false);
+    setForcedRevealIndexes([]);
+    setAnimatedRevealIndexes([]);
+    setIsAutoCompletingPhase2(false);
+    proposalAutoCompleteStartedRef.current = false;
   }
 
   function attachCameraStream(stream) {
@@ -483,10 +553,48 @@ function App() {
     }, delayMs);
   }
 
-  function resetRound() {
-    setGuessedLetters([]);
-    setWrongLetters([]);
-    clearRoundTimer();
+  function animateRevealedIndex(index) {
+    setAnimatedRevealIndexes((currentIndexes) =>
+      currentIndexes.includes(index) ? currentIndexes : [...currentIndexes, index],
+    );
+
+    const timerId = window.setTimeout(() => {
+      setAnimatedRevealIndexes((currentIndexes) =>
+        currentIndexes.filter((currentIndex) => currentIndex !== index),
+      );
+    }, 520);
+
+    autoCompleteTimersRef.current.push(timerId);
+  }
+
+  function countVisibleLetters(phrase, revealedLetters) {
+    return [...phrase].filter((char) => {
+      const normalizedChar = normalizeChar(char);
+      return normalizedChar && revealedLetters.includes(normalizedChar);
+    }).length;
+  }
+
+  function getHiddenProposalIndexes(revealedLetters) {
+    return PROPOSAL_LETTER_INDEXES.filter((index) => {
+      const normalizedChar = normalizeChar(PROPOSAL_PHRASE[index]);
+      return normalizedChar && !revealedLetters.includes(normalizedChar);
+    });
+  }
+
+  function pickNextCompliment() {
+    if (COMPLIMENT_OPTIONS.length <= 1) {
+      lastComplimentIndexRef.current = 0;
+      return COMPLIMENT_OPTIONS[0];
+    }
+
+    let nextIndex = lastComplimentIndexRef.current;
+
+    while (nextIndex === lastComplimentIndexRef.current) {
+      nextIndex = Math.floor(Math.random() * COMPLIMENT_OPTIONS.length);
+    }
+
+    lastComplimentIndexRef.current = nextIndex;
+    return COMPLIMENT_OPTIONS[nextIndex];
   }
 
   function runRoundTimerCallback() {
@@ -536,15 +644,89 @@ function App() {
     startRoundTimer(roundTimerRemainingRef.current);
   }
 
-  function queueAdvance(message, callback) {
-    clearRoundTimer();
-    setStatusText(message);
-    scheduleRoundTimer(() => {
+  function runPhaseTransition(title, callback, delayMs = PHASE_TRANSITION_MS) {
+    clearPhaseTransitionTimer();
+    setTransitionState({ title });
+
+    phaseTransitionTimerRef.current = window.setTimeout(() => {
       startTransition(() => {
         callback();
+        setTransitionState(null);
+      });
+    }, delayMs);
+  }
+
+  function runGameStageTransition(mode, callback, delayMs = GAME_STAGE_ZOOM_MS) {
+    clearGameStageTransitionTimer();
+    setGameStageTransition(mode);
+
+    gameStageTransitionTimerRef.current = window.setTimeout(() => {
+      startTransition(() => {
+        setGameStageTransition(null);
+        callback();
+      });
+    }, delayMs);
+  }
+
+  function startGameStageIntro(mode, delayMs = GAME_STAGE_ZOOM_MS) {
+    clearGameStageTransitionTimer();
+    setGameStageTransition(mode);
+
+    gameStageTransitionTimerRef.current = window.setTimeout(() => {
+      setGameStageTransition(null);
+    }, delayMs);
+  }
+
+  function startStage1SuccessSequence() {
+    clearHighlightTimer();
+    setSuccessHighlight(true);
+    setStatusText("Você acertou!");
+
+    highlightTimerRef.current = window.setTimeout(() => {
+      setSuccessHighlight(false);
+      void playEffect(HARP_UP_SOUND, 0.28);
+      runPhaseTransition("Fase 2", () => {
+        resetPhaseFlowState();
+        setScreen("stage2-guess");
+        setGuessedLetters([]);
+        setWrongLetters([]);
         setStatusText("");
       });
-    }, 900);
+    }, PHASE_SUCCESS_MS);
+  }
+
+  function startProposalAutoComplete(revealedLetters) {
+    const hiddenIndexes = getHiddenProposalIndexes(revealedLetters);
+    proposalAutoCompleteStartedRef.current = true;
+    clearAutoCompleteTimers();
+    setIsAutoCompletingPhase2(true);
+    setStatusText("Quase lá...");
+
+    hiddenIndexes.forEach((index, hiddenIndex) => {
+      const timerId = window.setTimeout(() => {
+        setForcedRevealIndexes((currentIndexes) =>
+          currentIndexes.includes(index) ? currentIndexes : [...currentIndexes, index],
+        );
+        animateRevealedIndex(index);
+        void playEffect(SPARKLE_SOUND, 0.24);
+      }, hiddenIndex * AUTO_COMPLETE_REVEAL_MS);
+
+      autoCompleteTimersRef.current.push(timerId);
+    });
+
+    const totalRevealDelay = hiddenIndexes.length * AUTO_COMPLETE_REVEAL_MS;
+    const transitionTimerId = window.setTimeout(() => {
+      runGameStageTransition("zoom-in", () => {
+        setScreen("stage2-choice");
+        setStatusText("");
+        setForcedRevealIndexes([]);
+        setAnimatedRevealIndexes([]);
+        setIsAutoCompletingPhase2(false);
+        startGameStageIntro("zoom-out");
+      });
+    }, totalRevealDelay + AUTO_COMPLETE_PAUSE_MS);
+
+    autoCompleteTimersRef.current.push(transitionTimerId);
   }
 
   function startFinaleTimer(delayMs) {
@@ -586,6 +768,14 @@ function App() {
     startFinaleTimer(finaleTimerRemainingRef.current);
   }
 
+  function resetRound() {
+    resetPhaseFlowState();
+    setGuessedLetters([]);
+    setWrongLetters([]);
+    clearRoundTimer();
+    setStatusText("");
+  }
+
   async function enterFullscreen() {
     const element = document.documentElement;
 
@@ -603,28 +793,33 @@ function App() {
         element.webkitRequestFullscreen();
       }
     } catch {
-      // Some mobile browsers reject fullscreen requests even after a tap.
+      // Alguns navegadores mobile rejeitam fullscreen mesmo após um toque.
     }
   }
 
   async function iniciarJogo() {
     await enterFullscreen();
+    resetPhaseFlowState();
     clearRoundTimer();
     clearFinaleTimer();
     clearRecorderStopTimer();
+
     if (shouldRecordOnThisDevice && recordingArmedRef.current) {
       await iniciarGravacao();
     }
+
     stopAllAudio();
     romanticStartedRef.current = false;
+    officialTrackStartedRef.current = false;
     setScreen("stage1");
-    setSelectedCompliment(pickRandomItem(COMPLIMENT_OPTIONS));
+    setSelectedCompliment(pickNextCompliment());
     setGuessedLetters([]);
     setWrongLetters([]);
     setModal(null);
     setNoCount(0);
     setStatusText("");
     setFinalStep("waiting");
+
     void playTrack(BACKGROUND_TRACK, 0.22, {
       loop: true,
       fadeMs: 500,
@@ -632,7 +827,7 @@ function App() {
   }
 
   function submitGuess(value) {
-    if (!hangmanActive || modal) {
+    if (!hangmanActive || modal || transitionState) {
       return;
     }
 
@@ -647,26 +842,40 @@ function App() {
       const nextGuesses = [...guessedLetters, letter];
       setGuessedLetters(nextGuesses);
 
-      const solved = phraseLetters.every((targetLetter) =>
+      if (screen === "stage1") {
+        const solvedStage1 = phraseLetters.every((targetLetter) =>
+          nextGuesses.includes(targetLetter),
+        );
+
+        if (!solvedStage1) {
+          return;
+        }
+
+        startStage1SuccessSequence();
+        return;
+      }
+
+      const visibleLetters = countVisibleLetters(PROPOSAL_PHRASE, nextGuesses);
+      const solvedStage2 = phraseLetters.every((targetLetter) =>
         nextGuesses.includes(targetLetter),
       );
 
-      if (!solved) {
+      if (
+        !proposalAutoCompleteStartedRef.current &&
+        visibleLetters >= AUTO_COMPLETE_TRIGGER_COUNT
+      ) {
+        startProposalAutoComplete(nextGuesses);
         return;
       }
 
-      if (screen === "stage1") {
-        void playEffect(HARP_UP_SOUND, 0.24);
-        queueAdvance("Boa! Vamos para a próxima.", () => {
-          setScreen("stage2-guess");
-          resetRound();
+      if (solvedStage2) {
+        runGameStageTransition("zoom-in", () => {
+          setScreen("stage2-choice");
+          setStatusText("");
+          startGameStageIntro("zoom-out");
         });
-        return;
       }
 
-      queueAdvance("Frase completa.", () => {
-        setScreen("stage2-choice");
-      });
       return;
     }
 
@@ -737,7 +946,6 @@ function App() {
 
   useEffect(() => {
     function handleKeyDown(event) {
-      // Se houver um modal aberto ou o jogo não estiver ativo, ignorar teclado físico.
       if (modal || !hangmanActive || !/^[a-z]$/i.test(event.key)) {
         return;
       }
@@ -748,24 +956,24 @@ function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [modal, hangmanActive]); // `handleKeyGuess` vem de `useEffectEvent`.
+  }, [modal, hangmanActive]);
 
   useEffect(() => {
     if (screen !== "stage3") {
       clearFinaleTimer();
       romanticStartedRef.current = false;
+      officialTrackStartedRef.current = false;
       return;
     }
 
     if (finalStep === "official") {
+      officialTrackStartedRef.current = true;
       playOfficialTrack();
       return;
     }
 
-    if (!romanticStartedRef.current) {
-      romanticStartedRef.current = true;
-      playRomanticTrack();
-    }
+    romanticStartedRef.current = true;
+    playRomanticTrack();
 
     if (finalStep !== "waiting") {
       return;
@@ -804,17 +1012,7 @@ function App() {
   }, [screen]);
 
   useEffect(() => {
-    if (modal !== "wrong-answer") {
-      setWrongAnswerCountdown(7);
-      return;
-    }
-
-    if (wrongAnswerCountdown <= 0) {
-      setModal(null);
-      return;
-    }
-
-    if (isViewportBlocked) {
+    if (modal !== "wrong-answer" || wrongAnswerCountdown <= 0 || isViewportBlocked) {
       return;
     }
 
@@ -851,6 +1049,10 @@ function App() {
       clearRoundTimer();
       clearFinaleTimer();
       clearRecorderStopTimer();
+      clearHighlightTimer();
+      clearGameStageTransitionTimer();
+      clearPhaseTransitionTimer();
+      clearAutoCompleteTimers();
       shouldDownloadRecordingRef.current = false;
 
       if (recorderRef.current && recorderRef.current.state !== "inactive") {
@@ -889,6 +1091,7 @@ function App() {
     setModal(null);
 
     if (noCount === 1) {
+      setWrongAnswerCountdown(7);
       setModal("wrong-answer");
       return;
     }
@@ -897,7 +1100,9 @@ function App() {
   }
 
   function acceptProposal() {
-    if (screen === "stage3") return; // Evita cliques duplos
+    if (screen === "stage3") {
+      return;
+    }
 
     clearFinaleTimer();
     clearRoundTimer();
@@ -907,9 +1112,10 @@ function App() {
   }
 
   function handleOfficialMoment() {
+    officialTrackStartedRef.current = true;
     setFinalStep("official");
     finalizarGravacaoComDelay();
-    void playEffect(CONFETTI_SOUND, 0.32);
+    void playEffect(CONFETTI_SOUND, 0.44);
 
     const launch = confettiLauncherRef.current;
     const heartShapes = confettiHeartsRef.current;
@@ -1103,16 +1309,28 @@ function App() {
                 </section>
               ) : (
                 <section
-                  className={`game-stage ${!hangmanActive ? "game-stage--solo" : ""}`}>
+                  className={`game-stage ${!hangmanActive ? "game-stage--solo" : ""} ${gameStageTransition ? `game-stage--transition-${gameStageTransition}` : ""}`}>
                   <div
                     className={`phrase-panel ${!hangmanActive ? "phrase-panel--solo" : ""} ${showProposalChoice ? "phrase-panel--choice" : ""}`}>
+                    {successHighlight && (
+                      <div
+                        className="phase-feedback phase-feedback--success">
+                        <span>
+                          {"Você acertou!"}
+                        </span>
+                      </div>
+                    )}
+
                     <PhraseBoard
                       phrase={currentPhrase}
                       guessedLetters={guessedLetters}
+                      revealedIndexes={forcedRevealIndexes}
+                      animatedIndexes={animatedRevealIndexes}
                       revealAll={revealFullPhrase}
                       hideQuestionMark={hideQuestionMark}
                       large={screen === "stage2-choice"}
                       clean={screen === "stage2-choice"}
+                      celebrating={successHighlight}
                     />
 
                     {!showProposalChoice && (
@@ -1161,7 +1379,12 @@ function App() {
                                 key={letter}
                                 className={`key ${isCorrect ? "key--correct" : ""} ${isUsed && !isCorrect ? "key--wrong" : ""}`}
                                 onClick={() => submitGuess(letter)}
-                                disabled={isUsed || Boolean(modal)}>
+                                disabled={
+                                  isUsed ||
+                                  Boolean(modal) ||
+                                  Boolean(transitionState) ||
+                                  isAutoCompletingPhase2
+                                }>
                                 {letter}
                               </button>
                             );
@@ -1176,6 +1399,15 @@ function App() {
           )}
         </section>
       )}
+
+      {transitionState ? (
+        <div className="phase-transition" aria-hidden="true">
+          <div className="phase-transition__card">
+            <span className="phase-transition__eyebrow">Próxima etapa</span>
+            <h2>{transitionState.title}</h2>
+          </div>
+        </div>
+      ) : null}
 
       <GameModal
         modalType={modal}

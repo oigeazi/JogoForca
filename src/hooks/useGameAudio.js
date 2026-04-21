@@ -79,6 +79,7 @@ export function useGameAudio() {
 
     const audioState = {
       audio,
+      src,
       gainNode: null,
       sourceNode: null,
       fadeTimer: null,
@@ -154,8 +155,35 @@ export function useGameAudio() {
 
   async function playTrack(src, volume, options = {}) {
     const { loop = true, fadeMs = 650 } = options;
+    const currentTrack = backgroundAudioRef.current;
 
-    const previousTrack = backgroundAudioRef.current;
+    if (currentTrack && currentTrack.src === src) {
+      const audioGraph = ensureAudioGraph();
+
+      currentTrack.audio.loop = loop;
+
+      if (currentTrack.gainNode) {
+        currentTrack.gainNode.gain.value = volume;
+      } else {
+        currentTrack.audio.volume = volume;
+      }
+
+      try {
+        if (audioGraph?.context.state === "suspended") {
+          await audioGraph.context.resume();
+        }
+
+        if (currentTrack.audio.paused) {
+          await currentTrack.audio.play();
+        }
+      } catch {
+        cleanupAudio(currentTrack);
+      }
+
+      return;
+    }
+
+    const previousTrack = currentTrack;
     const { audioGraph, audioState } = createAudioState(src, volume, { loop });
     backgroundAudioRef.current = audioState;
 

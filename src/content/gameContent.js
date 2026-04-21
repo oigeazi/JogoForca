@@ -19,13 +19,13 @@ export const COMPLIMENT_OPTIONS = [
   "Você é especial",
   "Você é radiante",
   "Você é maravilhosa",
-  "Que tarde agradável",
   "Que feriado ótimo",
   "Que sorriso lindo",
   "Que charme incrível",
   "Que beleza rara",
   "Você brilha muito",
   "Você alegra tudo",
+  "Oitava maravilha do mundo",
 ];
 
 export const PROPOSAL_PHRASE = "QUER NAMORAR COMIGO?";
